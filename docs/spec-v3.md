@@ -64,7 +64,7 @@ Active traders on prediction markets (Kalshi, ForecastEx) who use Robinhood Deri
 - **shadcn/ui**: “Copy-paste” component primitives (Radix/Base UI-backed) generated into your repo
   - Components live under `src/components/ui`
   - Theme via **CSS variables** (no runtime theme provider required for a dark-only MVP)
-  - Animations via **tw-animate-css** (Tailwind v4 recommendation)
+  - Animations via **tw-animate-css** (Tailwind v4 recommendation) with Motion (framer-motion) where it adds value 
 - **React 19** (or latest supported by your Next.js version)
 
 **Modern styling setup (App Router)**:
