@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Dark Monarch Theme Implementation
+  Target: Tailwind CSS v4 + shadcn/ui
+*/
+
+@theme {
+  /* Extend the default palette with our semantic names */
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  /* Custom Trading Colors */
+  --color-profit: var(--profit);
+  --color-loss: var(--loss);
+  --color-warning: var(--warning);
+
+  /* Radius tokens */
+  --radius: 0.5rem;
+}
+
+/* Base Styles (HSL Values)
+  Only defining Dark Mode since spec calls for "Dark-Only MVP"
+*/
+:root {
+  /* Deep Navy Background: hsl(224, 71%, 4%) */
+  --background: 224 71% 4%;
+  /* Off-white Foreground: hsl(210, 40%, 98%) */
+  --foreground: 210 40% 98%;
+
+  /* Charcoal Card Surface: hsl(220, 13%, 13%) */
+  --card: 220 13% 13%;
+  --card-foreground: 210 40% 98%;
+
+  /* Elevated Surface (Popovers): hsl(217, 19%, 20%) */
+  --popover: 217 19% 20%;
+  --popover-foreground: 210 40% 98%;
+
+  /* Electric Blue Brand: hsl(221, 83%, 53%) */
+  --primary: 221 83% 53%;
+  --primary-foreground: 210 40% 98%;
+
+  /* Secondary/Muted Elements: hsl(217, 19%, 20%) */
+  --secondary: 217 19% 20%;
+  --secondary-foreground: 210 40% 98%;
+
+  /* Muted Text: hsl(215, 20%, 65%) */
+  --muted: 217 19% 20%;
+  --muted-foreground: 215 20% 65%;
+
+  /* Accent (Hover States): Slightly lighter than secondary */
+  --accent: 217 19% 25%;
+  --accent-foreground: 210 40% 98%;
+
+  /* Destructive (Error/Loss): hsl(0, 84%, 60%) */
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+
+  /* Borders: hsl(217, 19%, 20%) */
+  --border: 217 19% 20%;
+  --input: 217 19% 20%;
+
+  /* Focus Ring matches Primary */
+  --ring: 221 83% 53%;
+
+  /* Custom Trading Semantic Colors */
+  --profit: 142 70% 45%;   /* Emerald Green */
+  --loss: 0 84% 60%;       /* Coral Red */
+  --warning: 38 92% 50%;   /* Amber */
+}
+
+/* Base styles for the app */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Enforce tabular numbers for all data tables and financial figures */
+  td, .financial-data {
+    font-variant-numeric: tabular-nums;
+  }
+}
