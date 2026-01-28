@@ -37,24 +37,25 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 2: App Shell & Routing
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create the application layout with sidebar navigation and route structure.
 
 **Acceptance Criteria:**
-- [ ] AppShell component with sidebar + main content area
-- [ ] Sidebar with navigation items (Dashboard, Trades, Analytics, Settings)
-- [ ] TopBar with page title and upload button placeholder
-- [ ] Route group `(app)` with dashboard, trades, analytics, settings routes
-- [ ] Active nav state highlighting
-- [ ] Collapsible sidebar on mobile (Sheet)
-- [ ] Navigation between routes works
+- [x] AppShell component with sidebar + main content area
+- [x] Sidebar with navigation items (Dashboard, Trades, Analytics, Settings)
+- [x] TopBar with page title and upload button placeholder
+- [x] Route group `(app)` with dashboard, trades, analytics, settings routes
+- [x] Active nav state highlighting
+- [x] Collapsible sidebar on mobile (Sheet)
+- [x] Navigation between routes works
 
-**Files to Create/Modify:**
+**Files Created:**
 - `src/components/layout/app-shell.tsx`
 - `src/components/layout/sidebar.tsx`
 - `src/components/layout/nav-item.tsx`
 - `src/components/layout/top-bar.tsx`
+- `src/components/layout/index.ts`
 - `src/app/(app)/layout.tsx`
 - `src/app/(app)/dashboard/page.tsx`
 - `src/app/(app)/trades/page.tsx`

@@ -12,24 +12,24 @@
 ## 1. Layout Components
 
 ### AppShell
-- [ ] 🎨 **AppShell** - Main layout wrapper
-  - Props: `children`
+- [x] 🎨 **AppShell** - Main layout wrapper
+  - Props: `children`, `title`
   - Contains: Sidebar, TopBar, main content area
 
 ### Navigation
-- [ ] 🔧 **Sidebar** - Collapsible nav sidebar
-  - Props: `isCollapsed`, `onToggle`
-  - Variants: collapsed, expanded
+- [x] 🔧 **Sidebar** - Collapsible nav sidebar
+  - Props: `className`
+  - Desktop: fixed sidebar, Mobile: Sheet drawer
   - Base: shadcn Sheet + custom styling
 
-- [ ] 🔧 **NavItem** - Sidebar navigation link
-  - Props: `href`, `icon`, `label`, `isActive`
-  - States: default, hover, active
+- [x] 🔧 **NavItem** - Sidebar navigation link
+  - Props: `href`, `icon`, `label`
+  - States: default, hover, active (auto-detected from pathname)
   - Base: shadcn Button (ghost variant) + custom
 
-- [ ] 🔧 **TopBar** - App header bar
-  - Props: `title`, `actions`
-  - Contains: page title, upload button, settings
+- [x] 🔧 **TopBar** - App header bar
+  - Props: `title`
+  - Contains: page title, upload button, mobile menu trigger
 
 ---
 
