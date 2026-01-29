@@ -67,32 +67,38 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 3: Database Layer
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
-**Description:** Set up wa-sqlite with OPFS persistence and create the database schema.
+**Description:** Set up wa-sqlite with IndexedDB persistence and create the database schema.
 
 **Acceptance Criteria:**
-- [ ] wa-sqlite installed and configured
-- [ ] OPFS persistence working (data survives page refresh)
-- [ ] Full schema created (all tables from spec)
-- [ ] Indexes created for performance
-- [ ] Views created (monthly_performance, category_performance, portfolio_snapshot)
-- [ ] Basic CRUD query functions in `lib/db/queries/`
-- [ ] TanStack Query client configured
-- [ ] Zustand store for UI state (filters, upload progress)
-- [ ] Browser compatibility check (block non-Chromium)
+- [x] wa-sqlite installed and configured (@subframe7536/sqlite-wasm)
+- [x] IndexedDB persistence working (data survives page refresh)
+- [x] Full schema created (all tables from spec)
+- [x] Indexes created for performance
+- [x] Views created (monthly_performance, category_performance, portfolio_snapshot)
+- [x] Basic CRUD query functions in `lib/db/queries/`
+- [x] TanStack Query client configured
+- [x] Zustand store for UI state (filters, upload progress)
+- [x] Browser compatibility check (block non-Chromium)
 
-**Files to Create/Modify:**
-- `src/lib/db/client.ts` - wa-sqlite initialization
-- `src/lib/db/schema.sql` - Full schema
-- `src/lib/db/migrations/001_initial.ts`
-- `src/lib/db/queries/statements.ts`
-- `src/lib/db/queries/trades.ts`
-- `src/lib/db/queries/positions.ts`
-- `src/lib/db/queries/dashboard.ts`
-- `src/lib/state/query-client.ts`
-- `src/lib/state/stores.ts`
-- `src/components/browser/browser-blocker.tsx`
+**Files Created:**
+- `src/lib/db/client.ts` - wa-sqlite initialization with IndexedDB
+- `src/lib/db/schema.ts` - Full schema as TypeScript const
+- `src/lib/db/schema.sql` - Full schema as SQL file
+- `src/lib/db/types.ts` - TypeScript types for all entities
+- `src/lib/db/migrations/001_initial.ts` - Initial migration
+- `src/lib/db/queries/statements.ts` - Statement import CRUD
+- `src/lib/db/queries/trades.ts` - Trade CRUD with filtering
+- `src/lib/db/queries/positions.ts` - Position and cash flow CRUD
+- `src/lib/db/queries/dashboard.ts` - Dashboard-specific queries
+- `src/lib/db/index.ts` - Barrel export
+- `src/lib/state/query-client.ts` - TanStack Query setup
+- `src/lib/state/query-provider.tsx` - Query provider component
+- `src/lib/state/stores.ts` - Zustand stores (filters, upload, preferences)
+- `src/lib/state/index.ts` - Barrel export
+- `src/components/browser/browser-blocker.tsx` - Chromium check
+- `src/app/layout.tsx` - Updated with providers
 
 **Demo:** Insert test data, refresh page, verify data persists
 
