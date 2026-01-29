@@ -221,9 +221,7 @@ SELECT
 -- INITIAL DATA
 -- ============================================================================
 
--- Insert initial schema version
-INSERT OR IGNORE INTO schema_version (version, description)
-VALUES (1, 'Initial schema with multi-platform support');
+-- Note: schema_version is managed by the migration system in migrations/001_initial.ts
 
 -- Default settings
 INSERT OR IGNORE INTO user_settings (key, value) VALUES

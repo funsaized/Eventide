@@ -10,7 +10,7 @@ import { initSQLite } from "@subframe7536/sqlite-wasm";
 // Note: createIdbStorage (renamed from useIdbStorage) is NOT a React hook
 // It's a factory function from sqlite-wasm for IndexedDB storage
 import { useIdbStorage as createIdbStorage } from "@subframe7536/sqlite-wasm/idb";
-import { SCHEMA } from "./schema";
+import { runMigrations } from "./migrations";
 
 // Database configuration
 const DB_NAME = "rubbin-hood.db";
@@ -65,30 +65,6 @@ async function createDatabase(): Promise<SQLiteDB> {
 
   console.log("[DB] Database initialized successfully");
   return db;
-}
-
-/**
- * Run database migrations
- */
-async function runMigrations(db: SQLiteDB): Promise<void> {
-  // Check if schema_version table exists
-  const tables = (await db.run(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'`
-  )) as { name: string }[];
-
-  if (tables.length === 0) {
-    // First time initialization - run full schema
-    console.log("[DB] Running initial schema migration...");
-    await db.run(SCHEMA);
-    console.log("[DB] Initial schema migration complete");
-  } else {
-    // Check current version and run any pending migrations
-    const version = (await db.run(
-      `SELECT MAX(version) as version FROM schema_version`
-    )) as { version: number }[];
-    console.log("[DB] Current schema version:", version[0]?.version ?? 0);
-    // Future migrations can be applied here based on version
-  }
 }
 
 /**
