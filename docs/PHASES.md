@@ -105,25 +105,26 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 4: PDF Parsing Foundation
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Set up pdf.js and create the basic parsing infrastructure.
 
 **Acceptance Criteria:**
-- [ ] pdf.js installed and working in browser
-- [ ] Can load a PDF and extract text with coordinates
-- [ ] Text items have x, y, width, height properties
-- [ ] Section header detection working (find "Monthly Trade Confirmations")
-- [ ] Parser registry architecture in place
-- [ ] Version detection by statement date
-- [ ] Type definitions for ParsedStatement, TradeRow, etc.
+- [x] pdf.js installed and working in browser
+- [x] Can load a PDF and extract text with coordinates
+- [x] Text items have x, y, width, height properties
+- [x] Section header detection working (find "Monthly Trade Confirmations")
+- [x] Parser registry architecture in place
+- [x] Version detection by statement date
+- [x] Type definitions for ParsedStatement, TradeRow, etc.
 
-**Files to Create/Modify:**
-- `src/lib/parsing/pdf-loader.ts` - pdf.js wrapper
-- `src/lib/parsing/types.ts` - Type definitions
-- `src/lib/parsing/registry.ts` - Parser registry
-- `src/lib/parsing/version-detector.ts`
-- `src/lib/parsing/utils.ts` - Text anchor finding, column detection
+**Files Created:**
+- `src/lib/parsing/types.ts` - Full type definitions (TextItem, ExtractedDocument, TradeRow, ParsedStatement, etc.)
+- `src/lib/parsing/pdf-loader.ts` - pdf.js wrapper with text extraction
+- `src/lib/parsing/utils.ts` - Section detection, column detection, value parsing, symbol categorization
+- `src/lib/parsing/version-detector.ts` - Statement version detection by date and structure
+- `src/lib/parsing/registry.ts` - Parser registry with automatic version selection
+- `src/lib/parsing/index.ts` - Barrel export
 
 **Demo:** Load a real PDF and log extracted text items to console
 
