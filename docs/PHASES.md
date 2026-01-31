@@ -130,58 +130,115 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 
 ---
 
-## Phase 5: Section 2 Parser (Trades)
-**Status:** [ ] Not started
+## Phase 5: Section Parsers (Trades & P&L)
+**Status:** [x] Complete
 
-**Description:** Parse the Monthly Trade Confirmations section to extract individual trades.
+**Description:** Parse the core sections needed for trade tracking and P&L calculation.
+
+**Key Insight:** The statement contains multiple representations of trade data:
+- **Section 2 (Monthly Trade Confirmations)**: Raw transactions for current month
+- **Section 4 (Purchase and Sale)**: Includes prior-month trades that settled this month
+- **Section 5 (Purchase and Sale Summary)**: **Source of truth for P&L**
 
 **Acceptance Criteria:**
-- [ ] Find Section 2 header in PDF
-- [ ] Detect column positions (Date, Subtype, Symbol, Price, Qty, Commission)
-- [ ] Extract all trade rows
-- [ ] Handle multi-line symbols (wrapped text)
-- [ ] Handle multi-page tables
-- [ ] Parse dates, numbers, and sides correctly
-- [ ] Unit tests with mock data pass
-- [ ] Works on real Robinhood statement
+- [x] Section boundary detection for all 10 sections
+- [x] Column position calibration using percentage-based offsets
+- [x] Section 2 parser (Monthly Trade Confirmations)
+  - [x] Parse trade date, symbol, side (YES/NO), quantity, price
+  - [x] Identify "Trade" vs "Final Settlement" entries
+  - [x] Handle multi-line wrapped symbols
+  - [x] Handle multi-page tables with repeated headers
+  - [x] Parse scientific notation prices (0E-8 = 0.00)
+- [x] Section 4 parser (Purchase and Sale)
+  - [x] Same structure as Section 2
+  - [x] Mark trades by source for deduplication with Section 2
+- [x] Section 5 parser (Purchase and Sale Summary)
+  - [x] Extract gross P&L per symbol/subtype
+  - [x] Pair YES/NO rows for same position
+- [x] Symbol parsing utility
+  - [x] Extract event type (NFL, Fed Decision, etc.)
+  - [x] Extract event date from symbol
+  - [x] Categorization patterns for 15+ market types
+- [x] Unit tests with mock PDF data
 
-**Files to Create/Modify:**
-- `src/lib/parsing/sections/section2.ts` - Trade parser
+**Files Created:**
+- `src/lib/parsing/sections/boundaries.ts` - Section boundary detection
+- `src/lib/parsing/sections/columns.ts` - Column calibration logic
+- `src/lib/parsing/sections/section2.ts` - Monthly Trade Confirmations parser
+- `src/lib/parsing/sections/section4.ts` - Purchase and Sale parser
+- `src/lib/parsing/sections/section5.ts` - Purchase and Sale Summary parser
+- `src/lib/parsing/sections/index.ts` - Barrel exports for sections
+- `src/lib/parsing/symbol.ts` - Symbol parsing and categorization
 - `src/lib/parsing/parsers/v1.0.ts` - v1.0 parser implementation
-- `tests/unit/parsing/section2.test.ts`
-- `tests/fixtures/section2-mock.ts`
+- `src/lib/parsing/parsers/index.ts` - Barrel exports for parsers
+- `tests/unit/parsing/section2.test.ts` - Section 2 unit tests (20 tests)
+- `tests/unit/parsing/section5.test.ts` - Section 5 unit tests (27 tests)
+- `tests/unit/parsing/symbol.test.ts` - Symbol parsing unit tests (55 tests)
+- `tests/fixtures/section-mocks.ts` - Mock PDF data for testing
+- `vitest.config.ts` - Vitest configuration
+- `tests/setup.ts` - Test setup with pdf.js mocks
 
-**Demo:** Parse real statement, log extracted trades to console
+**Demo:** Parse real statement, log extracted trades and P&L summary to console
 
 ---
 
 ## Phase 6: Complete Parsing Pipeline
 **Status:** [ ] Not started
 
-**Description:** Implement remaining section parsers and the full import pipeline.
+**Description:** Implement remaining section parsers, position reconstruction, and P&L validation.
+
+**Key Insight:** P&L validation compares our FIFO calculation against Section 5's authoritative figures. Discrepancies are logged but Section 5 values are used as source of truth.
 
 **Acceptance Criteria:**
-- [ ] Section 5 parser (Purchase and Sale Summary - P&L)
 - [ ] Section 6 parser (Journal Entries - cash flows)
-- [ ] Section 10 parser (Account Summary - net liquidity)
-- [ ] FIFO matching algorithm for P&L calculation
-- [ ] P&L validation (calculated vs statement, ±$0.01 tolerance)
-- [ ] Symbol categorization (NFL, NBA, Economics, etc.)
-- [ ] Duplicate detection (same statement date + account)
-- [ ] Full import transaction (all-or-nothing)
+  - [ ] Parse date, description, credit/debit amount
+  - [ ] Classify as DEPOSIT, WITHDRAWAL, FEE, etc.
+- [ ] Section 7 parser (Open Positions)
+  - [ ] Parse symbol, quantity, entry price, current price
+  - [ ] Calculate unrealized P&L
+- [ ] Section 10 parser (Account Summary)
+  - [ ] Parse key-value format (different from tabular sections)
+  - [ ] Extract net liquidity, total fees, gross P&L
+- [ ] Position ledger construction
+  - [ ] Build from Section 2 + Section 4 trades
+  - [ ] Deduplicate prior-month trades
+  - [ ] Track settlement status
+- [ ] P&L calculation engine
+  - [ ] FIFO cost basis calculation
+  - [ ] Handle YES and NO positions
+  - [ ] Handle two-sided positions (same event, both outcomes)
+- [ ] P&L validation against Section 5
+  - [ ] ±$0.01 tolerance per position
+  - [ ] Log discrepancies but use statement values
+- [ ] Fee attribution from Section 3 to individual trades
+- [ ] Duplicate statement detection (same account + date)
+- [ ] Full import pipeline with transaction wrapping
+- [ ] Transform to database DTOs
 - [ ] Unit tests for FIFO algorithm
 
 **Files to Create/Modify:**
-- `src/lib/parsing/sections/section5.ts`
-- `src/lib/parsing/sections/section6.ts`
-- `src/lib/parsing/sections/section10.ts`
-- `src/lib/calculations/fifo.ts`
-- `src/lib/calculations/validation.ts`
-- `src/lib/calculations/categorization.ts`
-- `src/lib/db/mutations/import.ts`
+- `src/lib/parsing/sections/section6.ts` - Journal Entries parser
+- `src/lib/parsing/sections/section7.ts` - Open Positions parser
+- `src/lib/parsing/sections/section10.ts` - Account Summary parser
+- `src/lib/calculations/position-ledger.ts` - Position reconstruction
+- `src/lib/calculations/fifo.ts` - FIFO P&L calculation
+- `src/lib/calculations/validation.ts` - P&L validation against Section 5
+- `src/lib/calculations/fee-attribution.ts` - Distribute fees to trades
+- `src/lib/parsing/pipeline.ts` - Full import pipeline orchestration
+- `src/lib/parsing/transform.ts` - Transform to database DTOs
+- `src/lib/db/mutations/import.ts` - Database persistence with transaction
 - `tests/unit/calculations/fifo.test.ts`
+- `tests/unit/calculations/validation.test.ts`
+- `tests/unit/parsing/pipeline.test.ts`
 
-**Demo:** Import real statement into database, verify data in SQLite
+**Validation Checkpoints:**
+1. All required sections detected (2, 4, 5, 6, 10)
+2. All prices in valid range (0.00 ≤ p ≤ 1.00)
+3. All quantities are positive integers
+4. Sum of calculated P&L matches Section 10 gross P&L (within tolerance)
+5. No duplicate statement exists
+
+**Demo:** Import real statement into database, verify data in SQLite, check P&L validation results
 
 ---
 

@@ -14,8 +14,9 @@ import type {
 
 // Configure pdf.js worker
 // In Next.js, we need to set the worker source
+// Using unpkg which mirrors npm packages directly (cdnjs may lag behind npm releases)
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 }
 
 /**
@@ -240,7 +241,8 @@ export function getItemsInYRange(
 }
 
 /**
- * Group text items into lines based on Y position
+ * Group text items into lines based on Y position, respecting page boundaries.
+ * Items on different pages are NEVER grouped into the same line.
  */
 export function groupIntoLines(
   items: TextItem[],
@@ -248,34 +250,51 @@ export function groupIntoLines(
 ): TextItem[][] {
   if (items.length === 0) return [];
 
-  // Sort by Y descending (top to bottom)
-  const sorted = [...items].sort((a, b) => b.y - a.y);
+  // First, group items by page number
+  const itemsByPage = new Map<number, TextItem[]>();
+  for (const item of items) {
+    const pageItems = itemsByPage.get(item.pageNumber) ?? [];
+    pageItems.push(item);
+    itemsByPage.set(item.pageNumber, pageItems);
+  }
 
-  const lines: TextItem[][] = [];
-  let currentLine: TextItem[] = [sorted[0]];
-  let currentY = sorted[0].y;
+  // Process each page's items separately, then combine results
+  const allLines: TextItem[][] = [];
 
-  for (let i = 1; i < sorted.length; i++) {
-    const item = sorted[i];
-    if (Math.abs(item.y - currentY) <= tolerance) {
-      // Same line
-      currentLine.push(item);
-    } else {
-      // New line - sort current line by X and save
+  // Sort pages by page number to maintain document order
+  const sortedPageNumbers = Array.from(itemsByPage.keys()).sort((a, b) => a - b);
+
+  for (const pageNumber of sortedPageNumbers) {
+    const pageItems = itemsByPage.get(pageNumber)!;
+
+    // Sort by Y descending (top to bottom)
+    const sorted = [...pageItems].sort((a, b) => b.y - a.y);
+
+    let currentLine: TextItem[] = [sorted[0]];
+    let currentY = sorted[0].y;
+
+    for (let i = 1; i < sorted.length; i++) {
+      const item = sorted[i];
+      if (Math.abs(item.y - currentY) <= tolerance) {
+        // Same line (same page is guaranteed by outer loop)
+        currentLine.push(item);
+      } else {
+        // New line - sort current line by X and save
+        currentLine.sort((a, b) => a.x - b.x);
+        allLines.push(currentLine);
+        currentLine = [item];
+        currentY = item.y;
+      }
+    }
+
+    // Don't forget the last line of this page
+    if (currentLine.length > 0) {
       currentLine.sort((a, b) => a.x - b.x);
-      lines.push(currentLine);
-      currentLine = [item];
-      currentY = item.y;
+      allLines.push(currentLine);
     }
   }
 
-  // Don't forget the last line
-  if (currentLine.length > 0) {
-    currentLine.sort((a, b) => a.x - b.x);
-    lines.push(currentLine);
-  }
-
-  return lines;
+  return allLines;
 }
 
 /**

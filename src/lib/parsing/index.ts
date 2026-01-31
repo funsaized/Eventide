@@ -63,7 +63,7 @@ export {
   parseCurrency,
   parseInteger,
   parsePrice,
-  // Symbol categorization
+  // Symbol categorization (basic)
   CATEGORY_PATTERNS,
   categorizeSymbol,
   parseSymbol,
@@ -99,3 +99,79 @@ export {
   registerParser,
   type ParseResult,
 } from "./registry";
+
+// Section Parsers (Phase 5)
+export {
+  // Boundary detection
+  SECTION_DEFINITIONS,
+  detectSectionBoundaries,
+  getSectionItems,
+  hasSection,
+  validateRequiredSections,
+  matchesSectionHeader,
+  type SectionId,
+  type SectionBoundary,
+  type BoundaryDetectionResult,
+  // Column calibration
+  SECTION2_COLUMNS,
+  SECTION5_COLUMNS,
+  calibrateColumns,
+  assignToColumn,
+  groupIntoRows,
+  parseRowToColumns,
+  type ColumnConfig,
+  // Section 2: Monthly Trade Confirmations
+  parseSection2,
+  getTradeQuantity,
+  isOpeningTrade,
+  isSettlement,
+  getSettlementOutcome,
+  filterByTradeType,
+  filterBySymbol,
+  groupTradesBySymbol,
+  type TradeConfirmation,
+  type TradeType,
+  type Section2ParseResult,
+  // Section 4: Purchase and Sale
+  parseSection4,
+  areTradesDuplicate,
+  mergeTradesWithDeduplication,
+  getUniqueTradesFromSections,
+  type PurchaseSaleTrade,
+  type Section4ParseResult,
+  // Section 5: Purchase and Sale Summary
+  parseSection5,
+  pairPositionRows,
+  getPnlBySymbol,
+  getTotalPnl,
+  getWinningPositions,
+  getLosingPositions,
+  calculateWinRate,
+  validatePnl,
+  findSection5Pnl,
+  findPairedPosition,
+  type PurchaseSaleSummaryRow,
+  type PairedPosition,
+  type Section5ParseResult,
+} from "./sections";
+
+// Symbol Parsing (Enhanced)
+export {
+  extractEventDate,
+  formatEventDate,
+  extractExchange,
+  extractEventType,
+  extractParticipants,
+  getSubcategory,
+  getBaseSymbol,
+  isSameEvent,
+  getOutcome,
+  isBinaryMarket,
+  getEventDescription,
+  groupByCategory,
+  getCategoryStats,
+  CATEGORY_PATTERNS as ENHANCED_CATEGORY_PATTERNS,
+} from "./symbol";
+
+// Versioned Parsers
+export { parserV1 } from "./parsers";
