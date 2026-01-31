@@ -129,7 +129,7 @@ export function BrowserBlocker({ children }: BrowserBlockerProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground text-center">
-              Rubbin Hood requires a Chromium-based browser for secure local
+              Eventide requires a Chromium-based browser for secure local
               data storage. Please use one of the following browsers:
             </p>
 

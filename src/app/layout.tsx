@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Rubbin Hood - Prediction Market Analytics",
+  title: "Eventide - Prediction Market Analytics",
   description:
     "Local-first analytics platform for tracking prediction market trading activity",
 };
