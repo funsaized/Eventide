@@ -5,8 +5,7 @@
  * Handles multi-page tables, wrapped symbols, and scientific notation prices.
  */
 
-import type { TextItem, TradeSide } from "../types";
-import { mergeLineText } from "../pdf-loader";
+import type { TradeSide } from "../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION2_COLUMNS,
@@ -18,15 +17,22 @@ import {
   isRepeatedHeader,
   type ColumnLayout,
 } from "./columns";
+import {
+  parseDateToISO,
+  parseQuantity,
+  parseTradePrice,
+  parseTradeSide,
+  parseTradeType,
+  parseLogger,
+  type TradeType,
+} from "./parse-helpers";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-/**
- * Trade type from the statement
- */
-export type TradeType = "Trade" | "Final Settlement";
+// Re-export TradeType for consumers
+export type { TradeType } from "./parse-helpers";
 
 /**
  * A single trade row extracted from Section 2
@@ -81,97 +87,24 @@ export interface Section2ParseResult {
 }
 
 // ============================================================================
-// PARSING LOGIC
+// VALIDATION
 // ============================================================================
-
-/**
- * Parse a date string to ISO format (YYYY-MM-DD)
- */
-function parseDateToISO(dateStr: string): string | null {
-  if (!dateStr) return null;
-
-  // Try MM/DD/YYYY format
-  const mdyMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    const [, month, day, year] = mdyMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
-
-  // Try YYYY-MM-DD format
-  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
-
-  return null;
-}
-
-/**
- * Parse a price value, handling scientific notation
- * Examples: "0.65", "0E-8" (= 0), "1.00000000"
- */
-function parseTradePrice(priceStr: string): number | null {
-  if (!priceStr) return null;
-
-  const cleaned = priceStr.trim().replace(/[$,\s]/g, "");
-
-  // Handle scientific notation (e.g., "0E-8" = 0)
-  if (/^[\d.]+E[+-]?\d+$/i.test(cleaned)) {
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? null : parsed;
-  }
-
-  // Handle regular decimal
-  const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? null : parsed;
-}
-
-/**
- * Parse a quantity value
- */
-function parseQuantity(qtyStr: string): number {
-  if (!qtyStr || qtyStr.trim() === "") return 0;
-  const cleaned = qtyStr.replace(/[,\s]/g, "");
-  const parsed = parseInt(cleaned, 10);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-/**
- * Parse trade type from text
- */
-function parseTradeType(typeStr: string): TradeType {
-  if (!typeStr) return "Trade";
-  const lower = typeStr.toLowerCase().trim();
-  if (lower.includes("final") || lower.includes("settlement")) {
-    return "Final Settlement";
-  }
-  return "Trade";
-}
-
-/**
- * Parse trade side (subtype)
- */
-function parseTradeSide(subtypeStr: string): TradeSide | null {
-  if (!subtypeStr) return null;
-  const upper = subtypeStr.toUpperCase().trim();
-  if (upper === "YES" || upper === "Y") return "YES";
-  if (upper === "NO" || upper === "N") return "NO";
-  return null;
-}
 
 /**
  * Validate a parsed trade
  */
 function isValidTrade(trade: Partial<TradeConfirmation>): boolean {
-  // Must have date, symbol, side, and valid quantity
   if (!trade.tradeDate) return false;
   if (!trade.symbol || trade.symbol.length < 3) return false;
   if (!trade.subtype) return false;
   if ((trade.qtyLong ?? 0) === 0 && (trade.qtyShort ?? 0) === 0) return false;
   if (trade.tradePrice === null || trade.tradePrice === undefined) return false;
-
   return true;
 }
+
+// ============================================================================
+// PARSING
+// ============================================================================
 
 /**
  * Parse Section 2 (Monthly Trade Confirmations)
@@ -197,6 +130,7 @@ export function parseSection2(
   // Find the header row
   const headerResult = findHeaderRow(items, SECTION2_COLUMNS, pageWidth);
   if (!headerResult) {
+    parseLogger.header("S2", { found: false });
     warnings.push("Could not find column headers in Section 2");
     return {
       trades: [],
@@ -207,6 +141,12 @@ export function parseSection2(
     };
   }
 
+  parseLogger.header("S2", {
+    found: true,
+    rowIndex: headerResult.headerRowIndex,
+    columnCount: headerResult.headerItems.length,
+  });
+
   // Calibrate columns from header
   const layout = calibrateColumns(
     headerResult.headerItems,
@@ -215,7 +155,9 @@ export function parseSection2(
   );
 
   // Get items after header
-  const dataItems = items.slice(headerResult.headerRowIndex + headerResult.headerItems.length);
+  const dataItems = items.slice(
+    headerResult.headerRowIndex + headerResult.headerItems.length
+  );
 
   // Group into rows
   const rows = groupIntoRows(dataItems);
@@ -228,7 +170,7 @@ export function parseSection2(
     rowsProcessed++;
 
     // Get row text for header detection
-    const rowText = row.map(item => item.text).join(" ");
+    const rowText = row.map((item) => item.text).join(" ");
 
     // Skip repeated headers on page breaks
     if (isRepeatedHeader(rowText, SECTION2_COLUMNS)) {
@@ -289,10 +231,8 @@ export function parseSection2(
       rawText: rowText,
     };
 
-    // Check if symbol might continue on next row
-    // (symbols can be very long and wrap)
+    // Check if symbol might continue on next row (symbols can be very long and wrap)
     if (newTrade.symbol && newTrade.symbol.length < 10) {
-      // Short symbol might be incomplete - hold as pending
       pendingTrade = newTrade;
     } else if (isValidTrade(newTrade)) {
       trades.push(newTrade as TradeConfirmation);
@@ -305,6 +245,12 @@ export function parseSection2(
   if (pendingTrade && isValidTrade(pendingTrade)) {
     trades.push(pendingTrade as TradeConfirmation);
   }
+
+  parseLogger.result("S2", {
+    rowsProcessed,
+    validCount: trades.length,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  });
 
   return {
     trades,
@@ -330,8 +276,6 @@ export function getTradeQuantity(trade: TradeConfirmation): number {
  * Determine if a trade is an opening trade
  */
 export function isOpeningTrade(trade: TradeConfirmation): boolean {
-  // Trade type "Trade" with quantity is an opening trade
-  // Final Settlement is a closing/settlement
   return trade.tradeType === "Trade";
 }
 
@@ -344,19 +288,11 @@ export function isSettlement(trade: TradeConfirmation): boolean {
 
 /**
  * Get settlement outcome from a Final Settlement trade
- * Returns 0 (NO won), 1 (YES won), or the settlement price for partial settlements
+ * Returns 0 (NO won), 1 (YES won), or the settlement price
  */
 export function getSettlementOutcome(trade: TradeConfirmation): number | null {
   if (!isSettlement(trade)) return null;
-
-  const price = trade.tradePrice;
-  if (price === null) return null;
-
-  // For binary options:
-  // - Settlement at 1.00 = YES outcome happened
-  // - Settlement at 0.00 = NO outcome happened (YES lost)
-  // - Other values = partial settlement (rare)
-  return price;
+  return trade.tradePrice ?? null;
 }
 
 /**
@@ -380,7 +316,7 @@ export function filterByTradeType(
   trades: TradeConfirmation[],
   type: TradeType
 ): TradeConfirmation[] {
-  return trades.filter(t => t.tradeType === type);
+  return trades.filter((t) => t.tradeType === type);
 }
 
 /**
@@ -390,7 +326,7 @@ export function filterBySymbol(
   trades: TradeConfirmation[],
   pattern: RegExp
 ): TradeConfirmation[] {
-  return trades.filter(t => pattern.test(t.symbol));
+  return trades.filter((t) => pattern.test(t.symbol));
 }
 
 /**

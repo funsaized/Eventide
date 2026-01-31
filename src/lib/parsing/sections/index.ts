@@ -78,3 +78,16 @@ export {
   type PairedPosition,
   type Section5ParseResult,
 } from "./section5";
+
+// Parse helpers and logging
+export {
+  parseLogger,
+  setDebugLogging,
+  parseDateToISO,
+  parseQuantity,
+  parseTradePrice,
+  parseCurrencyValue,
+  parseTradeSide,
+  parseTradeType,
+  type LogLevel,
+} from "./parse-helpers";

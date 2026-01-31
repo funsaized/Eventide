@@ -422,7 +422,8 @@ export const SECTION5_COLUMNS: ColumnConfig[] = [
 export function findHeaderRow(
   items: TextItem[],
   columnConfigs: ColumnConfig[],
-  pageWidth: number
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _pageWidth: number // kept for API consistency with calibrateColumns
 ): { headerItems: TextItem[]; headerRowIndex: number } | null {
   const lines = groupIntoLines(items);
 

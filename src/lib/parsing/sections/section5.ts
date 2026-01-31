@@ -10,8 +10,7 @@
  * Net P&L = YES row + NO row for the same symbol/expDate
  */
 
-import type { TextItem, TradeSide } from "../types";
-import { mergeLineText } from "../pdf-loader";
+import type { TradeSide } from "../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION5_COLUMNS,
@@ -23,6 +22,13 @@ import {
   isRepeatedHeader,
   type ColumnLayout,
 } from "./columns";
+import {
+  parseDateToISO,
+  parseQuantity,
+  parseCurrencyValue,
+  parseTradeSide,
+  parseLogger,
+} from "./parse-helpers";
 
 // ============================================================================
 // TYPES
@@ -99,71 +105,8 @@ export interface Section5ParseResult {
 }
 
 // ============================================================================
-// PARSING LOGIC
+// VALIDATION
 // ============================================================================
-
-/**
- * Parse a date string to ISO format
- */
-function parseDateToISO(dateStr: string): string | null {
-  if (!dateStr) return null;
-
-  const mdyMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    const [, month, day, year] = mdyMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
-
-  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
-
-  return null;
-}
-
-/**
- * Parse a currency/P&L value (handles negatives and parentheses)
- */
-function parseCurrencyValue(value: string): number | null {
-  if (!value) return null;
-
-  // Remove currency symbols and whitespace
-  let cleaned = value.trim().replace(/[$\s]/g, "");
-
-  // Handle parentheses for negative values: (123.45) = -123.45
-  const isNegative = cleaned.includes("(") || cleaned.startsWith("-");
-  cleaned = cleaned.replace(/[(),-]/g, "");
-
-  // Remove thousand separators
-  cleaned = cleaned.replace(/,/g, "");
-
-  const parsed = parseFloat(cleaned);
-  if (isNaN(parsed)) return null;
-
-  return isNegative ? -parsed : parsed;
-}
-
-/**
- * Parse a quantity value
- */
-function parseQuantity(qtyStr: string): number {
-  if (!qtyStr || qtyStr.trim() === "") return 0;
-  const cleaned = qtyStr.replace(/[,\s]/g, "");
-  const parsed = parseInt(cleaned, 10);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-/**
- * Parse trade side (subtype)
- */
-function parseTradeSide(subtypeStr: string): TradeSide | null {
-  if (!subtypeStr) return null;
-  const upper = subtypeStr.toUpperCase().trim();
-  if (upper === "YES" || upper === "Y") return "YES";
-  if (upper === "NO" || upper === "N") return "NO";
-  return null;
-}
 
 /**
  * Validate a parsed summary row
@@ -174,6 +117,10 @@ function isValidRow(row: Partial<PurchaseSaleSummaryRow>): boolean {
   if (row.grossPnl === null || row.grossPnl === undefined) return false;
   return true;
 }
+
+// ============================================================================
+// PARSING
+// ============================================================================
 
 /**
  * Parse Section 5 (Purchase and Sale Summary)
@@ -201,6 +148,7 @@ export function parseSection5(
   // Find the header row
   const headerResult = findHeaderRow(items, SECTION5_COLUMNS, pageWidth);
   if (!headerResult) {
+    parseLogger.header("S5", { found: false });
     warnings.push("Could not find column headers in Section 5");
     return {
       rows: [],
@@ -212,6 +160,12 @@ export function parseSection5(
       layout: null,
     };
   }
+
+  parseLogger.header("S5", {
+    found: true,
+    rowIndex: headerResult.headerRowIndex,
+    columnCount: headerResult.headerItems.length,
+  });
 
   // Calibrate columns from header
   const layout = calibrateColumns(
@@ -315,6 +269,14 @@ export function parseSection5(
 
   // Calculate total gross P&L
   const totalGrossPnl = rows.reduce((sum, row) => sum + row.grossPnl, 0);
+
+  parseLogger.result("S5", {
+    rowsProcessed,
+    validCount: rows.length,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  });
+
+  parseLogger.debug("S5", `pairs=${pairedPositions.length} totalPnl=${totalGrossPnl.toFixed(2)}`);
 
   return {
     rows,
@@ -447,17 +409,12 @@ export function getLosingPositions(
  */
 export function calculateWinRate(pairedPositions: PairedPosition[]): number {
   if (pairedPositions.length === 0) return 0;
-
   const winners = getWinningPositions(pairedPositions).length;
   return winners / pairedPositions.length;
 }
 
 /**
  * Validate calculated P&L against Section 5 reported P&L
- *
- * @param calculatedPnl Our FIFO-calculated P&L for a symbol
- * @param section5Pnl Section 5's reported P&L (source of truth)
- * @param tolerance Acceptable discrepancy (default ±$0.01)
  */
 export function validatePnl(
   calculatedPnl: number,

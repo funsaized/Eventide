@@ -8,8 +8,6 @@
  * this month. Cross-reference with Section 2 to avoid double-counting.
  */
 
-import type { TextItem, TradeSide } from "../types";
-import { mergeLineText } from "../pdf-loader";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION2_COLUMNS,
@@ -21,7 +19,15 @@ import {
   isRepeatedHeader,
   type ColumnLayout,
 } from "./columns";
-import type { TradeConfirmation, TradeType } from "./section2";
+import type { TradeConfirmation } from "./section2";
+import {
+  parseDateToISO,
+  parseQuantity,
+  parseTradePrice,
+  parseTradeSide,
+  parseTradeType,
+  parseLogger,
+} from "./parse-helpers";
 
 // ============================================================================
 // TYPES
@@ -57,81 +63,8 @@ export interface Section4ParseResult {
 }
 
 // ============================================================================
-// PARSING LOGIC
+// VALIDATION
 // ============================================================================
-
-/**
- * Parse a date string to ISO format (YYYY-MM-DD)
- */
-function parseDateToISO(dateStr: string): string | null {
-  if (!dateStr) return null;
-
-  // Try MM/DD/YYYY format
-  const mdyMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    const [, month, day, year] = mdyMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
-
-  // Try YYYY-MM-DD format
-  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
-
-  return null;
-}
-
-/**
- * Parse a price value, handling scientific notation
- */
-function parseTradePrice(priceStr: string): number | null {
-  if (!priceStr) return null;
-
-  const cleaned = priceStr.trim().replace(/[$,\s]/g, "");
-
-  // Handle scientific notation
-  if (/^[\d.]+E[+-]?\d+$/i.test(cleaned)) {
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? null : parsed;
-  }
-
-  const parsed = parseFloat(cleaned);
-  return isNaN(parsed) ? null : parsed;
-}
-
-/**
- * Parse a quantity value
- */
-function parseQuantity(qtyStr: string): number {
-  if (!qtyStr || qtyStr.trim() === "") return 0;
-  const cleaned = qtyStr.replace(/[,\s]/g, "");
-  const parsed = parseInt(cleaned, 10);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-/**
- * Parse trade type from text
- */
-function parseTradeType(typeStr: string): TradeType {
-  if (!typeStr) return "Trade";
-  const lower = typeStr.toLowerCase().trim();
-  if (lower.includes("final") || lower.includes("settlement")) {
-    return "Final Settlement";
-  }
-  return "Trade";
-}
-
-/**
- * Parse trade side (subtype)
- */
-function parseTradeSide(subtypeStr: string): TradeSide | null {
-  if (!subtypeStr) return null;
-  const upper = subtypeStr.toUpperCase().trim();
-  if (upper === "YES" || upper === "Y") return "YES";
-  if (upper === "NO" || upper === "N") return "NO";
-  return null;
-}
 
 /**
  * Validate a parsed trade
@@ -142,7 +75,6 @@ function isValidTrade(trade: Partial<PurchaseSaleTrade>): boolean {
   if (!trade.subtype) return false;
   if ((trade.qtyLong ?? 0) === 0 && (trade.qtyShort ?? 0) === 0) return false;
   if (trade.tradePrice === null || trade.tradePrice === undefined) return false;
-
   return true;
 }
 
@@ -156,6 +88,10 @@ function isWithinStatementPeriod(
 ): boolean {
   return tradeDate >= periodStart && tradeDate <= periodEnd;
 }
+
+// ============================================================================
+// PARSING
+// ============================================================================
 
 /**
  * Parse Section 4 (Purchase and Sale)
@@ -185,6 +121,7 @@ export function parseSection4(
   // Find the header row - Section 4 uses same structure as Section 2
   const headerResult = findHeaderRow(items, SECTION2_COLUMNS, pageWidth);
   if (!headerResult) {
+    parseLogger.header("S4", { found: false });
     warnings.push("Could not find column headers in Section 4");
     return {
       trades: [],
@@ -196,6 +133,12 @@ export function parseSection4(
       layout: null,
     };
   }
+
+  parseLogger.header("S4", {
+    found: true,
+    rowIndex: headerResult.headerRowIndex,
+    columnCount: headerResult.headerItems.length,
+  });
 
   // Calibrate columns from header
   const layout = calibrateColumns(
@@ -262,11 +205,7 @@ export function parseSection4(
     // Determine if this is a prior period trade
     const isPriorPeriod =
       statementPeriodStart && statementPeriodEnd
-        ? !isWithinStatementPeriod(
-            tradeDate,
-            statementPeriodStart,
-            statementPeriodEnd
-          )
+        ? !isWithinStatementPeriod(tradeDate, statementPeriodStart, statementPeriodEnd)
         : false;
 
     // Create new trade
@@ -307,6 +246,14 @@ export function parseSection4(
   // Separate current and prior period trades
   const currentPeriodTrades = trades.filter((t) => !t.isPriorPeriod);
   const priorPeriodTrades = trades.filter((t) => t.isPriorPeriod);
+
+  parseLogger.result("S4", {
+    rowsProcessed,
+    validCount: trades.length,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  });
+
+  parseLogger.debug("S4", `current=${currentPeriodTrades.length} prior=${priorPeriodTrades.length}`);
 
   return {
     trades,
@@ -362,7 +309,6 @@ export function mergeTradesWithDeduplication(
   let duplicatesRemoved = 0;
 
   for (const s4Trade of section4Trades) {
-    // Check if this trade exists in Section 2
     const isDuplicate = section2Trades.some((s2Trade) =>
       areTradesDuplicate(s2Trade, s4Trade)
     );
@@ -370,10 +316,16 @@ export function mergeTradesWithDeduplication(
     if (isDuplicate) {
       duplicatesRemoved++;
     } else {
-      // This is a prior-period trade - add it
       mergedTrades.push(s4Trade);
     }
   }
+
+  parseLogger.dedup({
+    section2Count: section2Trades.length,
+    section4Count: section4Trades.length,
+    duplicatesRemoved,
+    finalCount: mergedTrades.length,
+  });
 
   return {
     mergedTrades,
@@ -389,9 +341,5 @@ export function getUniqueTradesFromSections(
   section2Trades: TradeConfirmation[],
   section4Result: Section4ParseResult
 ): TradeConfirmation[] {
-  // All Section 2 trades + prior period trades from Section 4
-  return [
-    ...section2Trades,
-    ...section4Result.priorPeriodTrades,
-  ];
+  return [...section2Trades, ...section4Result.priorPeriodTrades];
 }

@@ -31,7 +31,7 @@ import { parseSection2, type TradeConfirmation } from "../sections/section2";
 import { parseSection4, mergeTradesWithDeduplication } from "../sections/section4";
 import { parseSection5, type PairedPosition } from "../sections/section5";
 import { categorizeSymbol } from "../symbol";
-import { extractAccountNumber, extractStatementDate } from "../utils";
+import { extractAccountNumber, extractStatementDate, extractStatementPeriod } from "../utils";
 
 // ============================================================================
 // PARSER IMPLEMENTATION
@@ -142,9 +142,10 @@ export const parserV1: StatementParser = {
     }
 
     // Convert to ClosedPositionRow format
+    // Pass trades array so we can look up actual entry dates
     const closedPositions: ClosedPositionRow[] = section5Result
       ? section5Result.pairedPositions.map((pos) =>
-          convertToClosedPositionRow(pos)
+          convertToClosedPositionRow(pos, trades)
         )
       : [];
 
@@ -309,10 +310,19 @@ function parseAccountSummary(
     accountNumber: "",
   };
 
-  // Extract statement date
+  // Extract statement date from all items (usually in header/first page)
   const statementDate = extractStatementDate(allItems);
   if (statementDate) {
     summary.statementDate = statementDate;
+  }
+
+  // Extract statement period from all items
+  const [periodStart, periodEnd] = extractStatementPeriod(allItems);
+  if (periodStart) {
+    summary.periodStart = periodStart;
+  }
+  if (periodEnd) {
+    summary.periodEnd = periodEnd;
   }
 
   // Extract account number
@@ -321,41 +331,62 @@ function parseAccountSummary(
     summary.accountNumber = accountNumber;
   }
 
-  // Parse key-value pairs from section
-  for (const item of items) {
+  // Parse key-value pairs from section items
+  // Account Summary section often has values on separate text items following labels
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     const text = item.text.toLowerCase();
 
-    // Net Liquidity
+    // Net Liquidity - may be on same item or next item
     if (text.includes("net liquidity")) {
       const match = item.text.match(/[\d,]+\.?\d*/);
-      if (match) {
+      if (match && match[0]) {
         summary.netLiquidity = parseFloat(match[0].replace(/,/g, ""));
+      } else {
+        // Check next few items for the value
+        for (let j = 1; j <= 3 && i + j < items.length; j++) {
+          const nextItem = items[i + j];
+          const valueMatch = nextItem.text.match(/^\$?([\d,]+\.?\d*)$/);
+          if (valueMatch) {
+            summary.netLiquidity = parseFloat(valueMatch[1].replace(/,/g, ""));
+            break;
+          }
+        }
       }
     }
 
     // Ending Cash Balance
-    if (text.includes("ending cash")) {
+    if (text.includes("ending cash") || text.includes("cash balance")) {
       const match = item.text.match(/[\d,]+\.?\d*/);
-      if (match) {
+      if (match && match[0]) {
         summary.endingCash = parseFloat(match[0].replace(/,/g, ""));
+      } else {
+        for (let j = 1; j <= 3 && i + j < items.length; j++) {
+          const nextItem = items[i + j];
+          const valueMatch = nextItem.text.match(/^\$?([\d,]+\.?\d*)$/);
+          if (valueMatch) {
+            summary.endingCash = parseFloat(valueMatch[1].replace(/,/g, ""));
+            break;
+          }
+        }
       }
     }
 
     // Total Commissions and Fees
     if (text.includes("total commission") || text.includes("total fee")) {
       const match = item.text.match(/[\d,]+\.?\d*/);
-      if (match) {
+      if (match && match[0]) {
         summary.totalFees = parseFloat(match[0].replace(/,/g, ""));
+      } else {
+        for (let j = 1; j <= 3 && i + j < items.length; j++) {
+          const nextItem = items[i + j];
+          const valueMatch = nextItem.text.match(/^\$?([\d,]+\.?\d*)$/);
+          if (valueMatch) {
+            summary.totalFees = parseFloat(valueMatch[1].replace(/,/g, ""));
+            break;
+          }
+        }
       }
-    }
-
-    // Statement Period
-    const periodMatch = item.text.match(
-      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/
-    );
-    if (periodMatch) {
-      summary.periodStart = formatDateToISO(periodMatch[1]);
-      summary.periodEnd = formatDateToISO(periodMatch[2]);
     }
   }
 
@@ -393,14 +424,32 @@ function convertToTradeRow(trade: TradeConfirmation): TradeRow {
 
 /**
  * Convert PairedPosition to ClosedPositionRow
+ * Uses actual trade data for entry dates when available
  */
-function convertToClosedPositionRow(position: PairedPosition): ClosedPositionRow {
+function convertToClosedPositionRow(
+  position: PairedPosition,
+  trades: TradeRow[]
+): ClosedPositionRow {
   const yesRow = position.yesRow;
   const noRow = position.noRow;
 
+  // Find the earliest trade date for this symbol from actual trade data
+  // This is more accurate than Section 5's tradeDate which is the month summary
+  const symbolTrades = trades.filter(t => t.symbol === position.symbol);
+  let entryDate = "";
+
+  if (symbolTrades.length > 0) {
+    // Sort by date and get the earliest
+    const sortedTrades = symbolTrades.sort((a, b) => a.date.localeCompare(b.date));
+    entryDate = sortedTrades[0].date;
+  } else {
+    // Fall back to Section 5 date (first of month, less accurate)
+    entryDate = yesRow?.tradeDate ?? noRow?.tradeDate ?? "";
+  }
+
   return {
     symbol: position.symbol,
-    entryDate: yesRow?.tradeDate ?? noRow?.tradeDate ?? "",
+    entryDate,
     exitDate: yesRow?.expDate ?? noRow?.expDate ?? "",
     quantity: position.totalQuantity,
     grossPnl: position.netPnl,

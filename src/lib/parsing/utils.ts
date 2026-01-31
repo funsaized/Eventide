@@ -4,6 +4,13 @@
  * Helper functions for text anchor finding, column detection, and section parsing.
  */
 
+import {
+  parse,
+  format,
+  isValid,
+  startOfMonth,
+  endOfMonth,
+} from "date-fns";
 import type {
   TextItem,
   ExtractedDocument,
@@ -261,35 +268,36 @@ export function findHeaderRow(
 // ============================================================================
 
 /**
- * Parse a date string (various formats)
+ * Supported date formats for parsing
+ */
+const DATE_FORMATS = [
+  "yyyy-MM-dd",      // ISO: 2025-09-30
+  "M/d/yyyy",        // US: 9/30/2025
+  "MM/dd/yyyy",      // US padded: 09/30/2025
+  "MMM d, yyyy",     // Long: Sep 30, 2025
+  "MMM dd, yyyy",    // Long padded: Sep 30, 2025
+  "MMMM d, yyyy",    // Full month: September 30, 2025
+  "MMMM dd, yyyy",   // Full month padded: September 30, 2025
+];
+
+/**
+ * Parse a date string (various formats) and return ISO format (YYYY-MM-DD)
+ * Uses date-fns for robust parsing
  */
 export function parseDate(dateStr: string): string | null {
-  // Try MM/DD/YYYY format
-  const mdyMatch = dateStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (mdyMatch) {
-    const [, month, day, year] = mdyMatch;
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-  }
+  if (!dateStr || !dateStr.trim()) return null;
 
-  // Try YYYY-MM-DD format
-  const isoMatch = dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    return isoMatch[0];
-  }
+  const cleaned = dateStr.trim();
 
-  // Try MMM DD, YYYY format
-  const monthNames: Record<string, string> = {
-    jan: "01", feb: "02", mar: "03", apr: "04",
-    may: "05", jun: "06", jul: "07", aug: "08",
-    sep: "09", oct: "10", nov: "11", dec: "12",
-  };
-
-  const mmmMatch = dateStr.match(/([A-Za-z]{3})\s+(\d{1,2}),?\s+(\d{4})/);
-  if (mmmMatch) {
-    const [, monthStr, day, year] = mmmMatch;
-    const month = monthNames[monthStr.toLowerCase()];
-    if (month) {
-      return `${year}-${month}-${day.padStart(2, "0")}`;
+  // Try each format until one works
+  for (const fmt of DATE_FORMATS) {
+    try {
+      const parsed = parse(cleaned, fmt, new Date());
+      if (isValid(parsed)) {
+        return format(parsed, "yyyy-MM-dd");
+      }
+    } catch {
+      // Continue to next format
     }
   }
 
@@ -498,7 +506,7 @@ export function extractAccountNumber(items: TextItem[]): string | null {
  */
 export function extractStatementDate(items: TextItem[]): string | null {
   for (const item of items) {
-    // Look for "Statement Period" or similar
+    // Look for "Statement Period: Month DD, YYYY" format
     const periodMatch = item.text.match(
       /Statement\s+Period[:\s]+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
     );
@@ -506,14 +514,49 @@ export function extractStatementDate(items: TextItem[]): string | null {
       return parseDate(periodMatch[1]);
     }
 
-    // Look for date ranges
+    // Look for date ranges "MM/DD/YYYY - MM/DD/YYYY" (use end date)
     const rangeMatch = item.text.match(
       /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/
     );
     if (rangeMatch) {
-      // Return the end date as the statement date
       return parseDate(rangeMatch[2]);
+    }
+
+    // Look for "Date:" followed by any supported date format
+    const dateMatch = item.text.match(/Date[:\s]+(\S+)/i);
+    if (dateMatch) {
+      const parsed = parseDate(dateMatch[1]);
+      if (parsed) return parsed;
     }
   }
   return null;
+}
+
+/**
+ * Extract statement period (start and end dates) from document
+ * Returns [periodStart, periodEnd] in ISO format
+ */
+export function extractStatementPeriod(items: TextItem[]): [string | null, string | null] {
+  // First, look for explicit date range
+  for (const item of items) {
+    const rangeMatch = item.text.match(
+      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/
+    );
+    if (rangeMatch) {
+      return [parseDate(rangeMatch[1]), parseDate(rangeMatch[2])];
+    }
+  }
+
+  // If no explicit range, derive from statement date (assume full month)
+  const statementDate = extractStatementDate(items);
+  if (statementDate) {
+    const parsed = parse(statementDate, "yyyy-MM-dd", new Date());
+    if (isValid(parsed)) {
+      const periodStart = format(startOfMonth(parsed), "yyyy-MM-dd");
+      const periodEnd = format(endOfMonth(parsed), "yyyy-MM-dd");
+      return [periodStart, periodEnd];
+    }
+  }
+
+  return [null, null];
 }
