@@ -12,7 +12,7 @@ const pageTitles: Record<string, string> = {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const title = pageTitles[pathname] || "Rubbin Hood";
+  const title = pageTitles[pathname] || "Eventide";
 
   return <AppShell title={title}>{children}</AppShell>;
 }

@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
       {/* Version */}
       <div className="text-center text-sm text-muted-foreground">
-        Rubbin Hood v0.1.0
+        Eventide v0.1.0
       </div>
     </div>
   );

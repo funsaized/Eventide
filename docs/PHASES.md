@@ -1,4 +1,4 @@
-# Implementation Phases - Rubbin Hood MVP
+# Implementation Phases - Eventide MVP
 
 This document tracks the sequential implementation phases for the MVP.
 Each phase is designed to be completable in 1-3 coding sessions and results in something testable.

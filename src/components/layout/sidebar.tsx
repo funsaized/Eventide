@@ -52,7 +52,7 @@ function SidebarContent() {
       {/* Logo */}
       <div className="flex h-14 items-center border-b border-border px-4">
         <span className="text-lg font-semibold tracking-tight">
-          Rubbin Hood
+          Eventide
         </span>
       </div>
 
