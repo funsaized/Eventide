@@ -183,38 +183,38 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 6: Complete Parsing Pipeline
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Implement remaining section parsers, position reconstruction, and P&L validation.
 
 **Key Insight:** P&L validation compares our FIFO calculation against Section 5's authoritative figures. Discrepancies are logged but Section 5 values are used as source of truth.
 
 **Acceptance Criteria:**
-- [ ] Section 6 parser (Journal Entries - cash flows)
-  - [ ] Parse date, description, credit/debit amount
-  - [ ] Classify as DEPOSIT, WITHDRAWAL, FEE, etc.
-- [ ] Section 7 parser (Open Positions)
-  - [ ] Parse symbol, quantity, entry price, current price
-  - [ ] Calculate unrealized P&L
-- [ ] Section 10 parser (Account Summary)
-  - [ ] Parse key-value format (different from tabular sections)
-  - [ ] Extract net liquidity, total fees, gross P&L
-- [ ] Position ledger construction
-  - [ ] Build from Section 2 + Section 4 trades
-  - [ ] Deduplicate prior-month trades
-  - [ ] Track settlement status
-- [ ] P&L calculation engine
-  - [ ] FIFO cost basis calculation
-  - [ ] Handle YES and NO positions
-  - [ ] Handle two-sided positions (same event, both outcomes)
-- [ ] P&L validation against Section 5
-  - [ ] ±$0.01 tolerance per position
-  - [ ] Log discrepancies but use statement values
-- [ ] Fee attribution from Section 3 to individual trades
-- [ ] Duplicate statement detection (same account + date)
-- [ ] Full import pipeline with transaction wrapping
-- [ ] Transform to database DTOs
-- [ ] Unit tests for FIFO algorithm
+- [x] Section 6 parser (Journal Entries - cash flows)
+  - [x] Parse date, description, credit/debit amount
+  - [x] Classify as DEPOSIT, WITHDRAWAL, FEE, etc.
+- [x] Section 7 parser (Open Positions)
+  - [x] Parse symbol, quantity, entry price, current price
+  - [x] Calculate unrealized P&L
+- [x] Section 10 parser (Account Summary)
+  - [x] Parse key-value format (different from tabular sections)
+  - [x] Extract net liquidity, total fees, gross P&L
+- [x] Position ledger construction
+  - [x] Build from Section 2 + Section 4 trades
+  - [x] Deduplicate prior-month trades
+  - [x] Track settlement status
+- [x] P&L calculation engine
+  - [x] FIFO cost basis calculation
+  - [x] Handle YES and NO positions
+  - [x] Handle two-sided positions (same event, both outcomes)
+- [x] P&L validation against Section 5
+  - [x] ±$0.01 tolerance per position
+  - [x] Log discrepancies but use statement values
+- [x] Fee attribution from Section 3 to individual trades
+- [x] Duplicate statement detection (same account + date)
+- [x] Full import pipeline with transaction wrapping
+- [x] Transform to database DTOs
+- [x] Unit tests for FIFO algorithm
 
 **Files to Create/Modify:**
 - `src/lib/parsing/sections/section6.ts` - Journal Entries parser
@@ -243,30 +243,32 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 7: Upload Flow UI
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create the upload flow UI components for file selection, parsing feedback, and import.
 
 **Acceptance Criteria:**
-- [ ] FileUploader with drag-and-drop
-- [ ] File validation (type, size, page count)
-- [ ] ParsingProgress showing section-by-section status
-- [ ] ParseErrorReport for failures
-- [ ] ImportPreview showing extracted summary
-- [ ] DuplicateModal for handling existing statements
-- [ ] ValidationWarningModal for P&L discrepancies
-- [ ] Full flow: upload → parse → preview → import → redirect to dashboard
-- [ ] Toast notifications for success/error
+- [x] FileUploader with drag-and-drop
+- [x] File validation (type, size, page count)
+- [x] ParsingProgress showing section-by-section status
+- [x] ParseErrorReport for failures
+- [x] ImportPreview showing extracted summary
+- [x] DuplicateModal for handling existing statements
+- [x] ValidationWarningModal for P&L discrepancies
+- [x] Full flow: upload → parse → preview → import → redirect to dashboard
+- [x] Toast notifications for success/error (console-based for MVP)
 
-**Files to Create/Modify:**
+**Files Created:**
 - `src/components/upload/file-uploader.tsx`
 - `src/components/upload/parsing-progress.tsx`
 - `src/components/upload/parse-error-report.tsx`
 - `src/components/upload/import-preview.tsx`
 - `src/components/upload/duplicate-modal.tsx`
 - `src/components/upload/validation-warning-modal.tsx`
+- `src/components/upload/index.ts`
 - `src/features/imports/upload-flow.tsx`
 - `src/app/(app)/upload/page.tsx`
+- `src/hooks/use-toast.ts`
 
 **Demo:** Upload a real PDF, see parsing progress, preview data, import successfully
 

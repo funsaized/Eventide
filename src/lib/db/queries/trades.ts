@@ -195,48 +195,41 @@ export async function createTrade(input: CreateTradeInput): Promise<Trade> {
 }
 
 /**
- * Create multiple trades in a transaction
+ * Create multiple trades
+ * Note: Does not manage its own transaction - caller should wrap in transaction() if needed
  */
 export async function createTrades(inputs: CreateTradeInput[]): Promise<void> {
   const db = await getDatabase();
 
-  await db.run("BEGIN TRANSACTION");
-
-  try {
-    for (const input of inputs) {
-      const id = input.id ?? generateId();
-      await db.run(
-        `INSERT INTO trades (
-          id, import_id, platform, account_id,
-          trade_date, symbol, side, quantity, price, fees,
-          trade_type, category, settlement_date, settlement_price,
-          platform_metadata
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.import_id,
-          input.platform,
-          input.account_id,
-          input.trade_date,
-          input.symbol,
-          input.side,
-          input.quantity,
-          input.price,
-          input.fees ?? 0,
-          input.trade_type ?? null,
-          input.category ?? null,
-          input.settlement_date ?? null,
-          input.settlement_price ?? null,
-          input.platform_metadata
-            ? JSON.stringify(input.platform_metadata)
-            : null,
-        ]
-      );
-    }
-    await db.run("COMMIT");
-  } catch (error) {
-    await db.run("ROLLBACK");
-    throw error;
+  for (const input of inputs) {
+    const id = input.id ?? generateId();
+    await db.run(
+      `INSERT INTO trades (
+        id, import_id, platform, account_id,
+        trade_date, symbol, side, quantity, price, fees,
+        trade_type, category, settlement_date, settlement_price,
+        platform_metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.import_id,
+        input.platform,
+        input.account_id,
+        input.trade_date,
+        input.symbol,
+        input.side,
+        input.quantity,
+        input.price,
+        input.fees ?? 0,
+        input.trade_type ?? null,
+        input.category ?? null,
+        input.settlement_date ?? null,
+        input.settlement_price ?? null,
+        input.platform_metadata
+          ? JSON.stringify(input.platform_metadata)
+          : null,
+      ]
+    );
   }
 }
 

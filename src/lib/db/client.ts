@@ -15,7 +15,7 @@ import { runMigrations } from "./migrations";
 // Database configuration
 const DB_NAME = "rubbin-hood.db";
 const WASM_URL =
-  "https://cdn.jsdelivr.net/npm/@subframe7536/sqlite-wasm@0.5.0/wa-sqlite-async.wasm";
+  "https://cdn.jsdelivr.net/npm/@subframe7536/sqlite-wasm@0.5.8/dist/wa-sqlite-async.wasm";
 
 // Database instance type
 export type SQLiteDB = Awaited<ReturnType<typeof initSQLite>>;

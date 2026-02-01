@@ -100,7 +100,7 @@ export {
   type ParseResult,
 } from "./registry";
 
-// Section Parsers (Phase 5)
+// Section Parsers (Phase 5 + 6)
 export {
   // Boundary detection
   SECTION_DEFINITIONS,
@@ -114,7 +114,11 @@ export {
   type BoundaryDetectionResult,
   // Column calibration
   SECTION2_COLUMNS,
+  SECTION3_COLUMNS,
   SECTION5_COLUMNS,
+  SECTION6_COLUMNS,
+  SECTION7_COLUMNS,
+  SECTION10_FIELD_PATTERNS,
   calibrateColumns,
   assignToColumn,
   groupIntoRows,
@@ -132,6 +136,16 @@ export {
   type TradeConfirmation,
   type TradeType,
   type Section2ParseResult,
+  // Section 3: Trade Confirmation Summary (fees)
+  parseSection3,
+  getFeesForSymbolDate,
+  getTotalFeesForSymbol,
+  getSection3TotalFees,
+  groupSection3BySymbol,
+  groupBySymbolAndDate,
+  getFeeBreakdown,
+  type TradeConfirmationSummary,
+  type Section3ParseResult,
   // Section 4: Purchase and Sale
   parseSection4,
   areTradesDuplicate,
@@ -153,6 +167,40 @@ export {
   type PurchaseSaleSummaryRow,
   type PairedPosition,
   type Section5ParseResult,
+  // Section 6: Journal Entries
+  parseSection6,
+  classifyCashFlow,
+  toJournalEntry,
+  getTotalDeposits,
+  getTotalWithdrawals,
+  getSection6TotalFees,
+  getNetCashActivity,
+  type CashFlowType,
+  type JournalEntryRow,
+  type Section6ParseResult,
+  // Section 7: Open Positions
+  parseSection7,
+  toOpenPositionRow,
+  getTotalOpenQuantity,
+  getTotalUnrealizedPnl,
+  getTotalMarketValue,
+  getPositionQuantity,
+  filterPositionsBySymbol,
+  filterBySide,
+  groupPositionsBySymbol,
+  isExpiringSoon,
+  type OpenPosition,
+  type Section7ParseResult,
+  // Section 10: Account Summary
+  parseSection10,
+  toAccountSummary,
+  extractStatementMetadata,
+  hasRequiredFields,
+  validateSummaryConsistency,
+  getAccountTotalFees,
+  getNetPnl,
+  type AccountSummaryRaw,
+  type Section10ParseResult,
 } from "./sections";
 
 // Symbol Parsing (Enhanced)
@@ -175,3 +223,14 @@ export {
 
 // Versioned Parsers
 export { parserV1 } from "./parsers";
+
+// Import Pipeline
+export {
+  importStatement,
+  parseDocument,
+  type ImportOptions,
+  type ParsedImportData,
+  type ImportResult,
+  type ImportPhase,
+  type ProgressCallback,
+} from "./import-pipeline";

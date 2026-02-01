@@ -272,6 +272,12 @@ export function parseSection4(
 
 /**
  * Compare two trades to see if they are duplicates
+ *
+ * NOTE: We do NOT compare tradeType because Section 4 may not have
+ * the Trade Type column correctly populated (defaults to "Trade"),
+ * while Section 2 has accurate trade types (including "Final Settlement").
+ * This prevents the same settlement from being counted twice with
+ * different trade types.
  */
 export function areTradesDuplicate(
   trade1: TradeConfirmation,
@@ -283,8 +289,8 @@ export function areTradesDuplicate(
     trade1.subtype === trade2.subtype &&
     trade1.tradePrice === trade2.tradePrice &&
     trade1.qtyLong === trade2.qtyLong &&
-    trade1.qtyShort === trade2.qtyShort &&
-    trade1.tradeType === trade2.tradeType
+    trade1.qtyShort === trade2.qtyShort
+    // NOTE: Intentionally not comparing tradeType - see comment above
   );
 }
 
@@ -307,6 +313,7 @@ export function mergeTradesWithDeduplication(
 } {
   const mergedTrades: TradeConfirmation[] = [...section2Trades];
   let duplicatesRemoved = 0;
+  let priorPeriodAdded = 0;
 
   for (const s4Trade of section4Trades) {
     const isDuplicate = section2Trades.some((s2Trade) =>
@@ -317,6 +324,9 @@ export function mergeTradesWithDeduplication(
       duplicatesRemoved++;
     } else {
       mergedTrades.push(s4Trade);
+      if (s4Trade.isPriorPeriod) {
+        priorPeriodAdded++;
+      }
     }
   }
 
@@ -326,6 +336,9 @@ export function mergeTradesWithDeduplication(
     duplicatesRemoved,
     finalCount: mergedTrades.length,
   });
+
+  // Additional debug logging
+  console.log(`[Dedup] S2: ${section2Trades.length}, S4: ${section4Trades.length}, dups removed: ${duplicatesRemoved}, prior period added: ${priorPeriodAdded}`);
 
   return {
     mergedTrades,

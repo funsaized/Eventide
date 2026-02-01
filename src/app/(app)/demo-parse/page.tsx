@@ -1,68 +1,82 @@
 "use client";
 
 /**
- * Phase 5 Demo Page
+ * Phase 6 Demo Page
  *
- * Upload a Robinhood Derivatives statement PDF and see parsed output.
- * Includes LLM-friendly export for debugging.
+ * Upload a Robinhood Derivatives statement PDF to:
+ * 1. Parse all sections
+ * 2. Run FIFO P&L calculation
+ * 3. Validate against Section 5 (source of truth)
+ * 4. Optionally import into database
  */
 
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
-interface LLMExport {
-  metadata: {
-    parserVersion: string;
-    parseTimeMs: number;
-    documentInfo: {
-      pageCount: number;
-      totalTextItems: number;
-    };
-    versionDetection: unknown;
-  };
-  accountSummary: unknown;
-  trades: {
-    total: number;
-    sample: unknown[];
-    allTrades: unknown[];
-  };
-  closedPositions: {
-    total: number;
-    positions: unknown[];
-  };
-  openPositions: {
-    total: number;
-    positions: unknown[];
-  };
-  journalEntries: {
-    total: number;
-    entries: unknown[];
-  };
-  warnings: string[];
-  rawTextSamples: {
-    description: string;
-    pages: Array<{
-      pageNumber: number;
-      itemCount: number;
-      sampleItems: Array<{
-        text: string;
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }>;
-      fullText: string;
+interface ParseResult {
+  // Metadata
+  accountNumber: string;
+  statementDate: string;
+  periodStart: string;
+  periodEnd: string;
+  parseTimeMs: number;
+
+  // Counts
+  tradeCount: number;
+  closedPositionCount: number;
+  openPositionCount: number;
+  journalEntryCount: number;
+
+  // Account Summary
+  netLiquidity: number;
+  endingCash: number;
+  totalFees: number;
+  grossPnl: number;
+
+  // FIFO Results
+  fifoGrossPnl: number;
+  fifoNetPnl: number;
+  fifoTotalFees: number;
+
+  // P&L Validation
+  pnlValidation: {
+    isValid: boolean;
+    totalCalculatedPnl: number;
+    totalReportedPnl: number;
+    totalDiscrepancy: number;
+    passCount: number;
+    failCount: number;
+    summary: string;
+    failures: Array<{
+      symbol: string;
+      calculatedPnl: number;
+      reportedPnl: number;
+      discrepancy: number;
     }>;
   };
+
+  // Fee Attribution
+  feeAttribution: {
+    totalFeesAttributed: number;
+    totalFeesAvailable: number;
+    unattributedFees: number;
+    warnings: string[];
+  };
+
+  // Warnings
+  warnings: string[];
 }
 
 export default function DemoParsePage() {
   const [status, setStatus] = useState<string>("Ready to parse");
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [llmExport, setLlmExport] = useState<LLMExport | null>(null);
-  const [showJson, setShowJson] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [result, setResult] = useState<ParseResult | null>(null);
+  const [importSuccess, setImportSuccess] = useState<boolean | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -76,18 +90,19 @@ export default function DemoParsePage() {
     setIsLoading(true);
     setStatus("Loading PDF...");
     setResult(null);
-    setLlmExport(null);
+    setImportSuccess(null);
+    setImportError(null);
+
+    const startTime = performance.now();
 
     try {
-      // Dynamic import to avoid SSR issues with pdf.js
-      const { loadPDFFromFile } = await import("@/lib/parsing/pdf-loader");
-      const { detectVersion } = await import("@/lib/parsing/version-detector");
-      const { parseStatement } = await import("@/lib/parsing/registry");
-      const { parserV1 } = await import("@/lib/parsing/parsers/v1.0");
+      // Dynamic imports to avoid SSR issues
+      const { loadPDFFromFile, flattenDocument } = await import("@/lib/parsing/pdf-loader");
+      const { parseDocument } = await import("@/lib/parsing/import-pipeline");
+      const { setDebugLogging } = await import("@/lib/parsing/sections/parse-helpers");
 
-      // Register the v1.0 parser
-      const { parserRegistry } = await import("@/lib/parsing/registry");
-      parserRegistry.register(parserV1);
+      // Enable debug logging
+      setDebugLogging(true);
 
       setStatus("Extracting text from PDF...");
       const document = await loadPDFFromFile(file, { verbose: true });
@@ -96,147 +111,144 @@ export default function DemoParsePage() {
       console.log(`Pages: ${document.pageCount}`);
       console.log(`Total text items: ${document.pages.reduce((sum, p) => sum + p.items.length, 0)}`);
 
-      setStatus("Detecting statement version...");
-      const versionResult = detectVersion(document);
-      console.log("=== VERSION DETECTION ===");
-      console.log(versionResult);
+      setStatus("Parsing sections and calculating P&L...");
+      const parsed = await parseDocument(document, true);
+      const { getTotalPnl } = await import("@/lib/calculations/fifo");
 
-      setStatus("Parsing statement...");
-      const parseResult = await parseStatement(document);
+      const parseTimeMs = Math.round(performance.now() - startTime);
+      const fifoTotals = getTotalPnl(parsed.fifoResults);
 
-      console.log("=== PARSE RESULT ===");
-      console.log(parseResult);
+      console.log("=== PARSED DATA ===");
+      console.log("Account:", parsed.accountNumber);
+      console.log("Period:", parsed.periodStart, "-", parsed.periodEnd);
+      console.log("Trades with fees:", parsed.tradesWithFees.length);
+      console.log("Paired positions:", parsed.pairedPositions.length);
+      console.log("Journal entries:", parsed.journalEntries.length);
+      console.log("Open positions:", parsed.openPositions.length);
+      console.log("FIFO results:", parsed.fifoResults.size);
+      console.log("P&L validation:", parsed.pnlValidation);
+      console.log("Fee attribution:", parsed.feeAttribution);
 
-      const stmt = parseResult.statement;
+      // Build result for display
+      const displayResult: ParseResult = {
+        accountNumber: parsed.accountNumber,
+        statementDate: parsed.statementDate,
+        periodStart: parsed.periodStart,
+        periodEnd: parsed.periodEnd,
+        parseTimeMs,
 
-      console.log("=== TRADES ===");
-      console.table(stmt.trades.slice(0, 20)); // First 20 trades
+        tradeCount: parsed.tradesWithFees.length,
+        closedPositionCount: parsed.pairedPositions.length,
+        openPositionCount: parsed.openPositions.length,
+        journalEntryCount: parsed.journalEntries.length,
 
-      console.log("=== CLOSED POSITIONS ===");
-      console.table(stmt.closedPositions);
+        netLiquidity: parsed.accountSummary.netLiquidity ?? 0,
+        endingCash: parsed.accountSummary.endingCashBalance ?? 0,
+        totalFees: parsed.accountSummary.totalCommissionsAndFees ?? 0,
+        grossPnl: parsed.accountSummary.grossProfitAndLoss ?? 0,
 
-      console.log("=== ACCOUNT SUMMARY ===");
-      console.log(stmt.accountSummary);
+        fifoGrossPnl: fifoTotals.grossPnl,
+        fifoNetPnl: fifoTotals.netPnl,
+        fifoTotalFees: fifoTotals.fees,
 
-      console.log("=== WARNINGS ===");
-      console.log(stmt.warnings);
-
-      // Build LLM-friendly export
-      const exportData: LLMExport = {
-        metadata: {
-          parserVersion: parseResult.parserVersion,
-          parseTimeMs: parseResult.parseTimeMs,
-          documentInfo: {
-            pageCount: document.pageCount,
-            totalTextItems: document.pages.reduce((sum, p) => sum + p.items.length, 0),
-          },
-          versionDetection: versionResult,
-        },
-        accountSummary: stmt.accountSummary,
-        trades: {
-          total: stmt.trades.length,
-          sample: stmt.trades.slice(0, 10),
-          allTrades: stmt.trades,
-        },
-        closedPositions: {
-          total: stmt.closedPositions.length,
-          positions: stmt.closedPositions,
-        },
-        openPositions: {
-          total: stmt.openPositions.length,
-          positions: stmt.openPositions,
-        },
-        journalEntries: {
-          total: stmt.journalEntries.length,
-          entries: stmt.journalEntries,
-        },
-        warnings: stmt.warnings,
-        rawTextSamples: {
-          description: "Raw PDF text items by page for debugging. Each page shows first 50 items and concatenated text.",
-          pages: document.pages.map(page => ({
-            pageNumber: page.pageNumber,
-            itemCount: page.items.length,
-            sampleItems: page.items.slice(0, 50).map(item => ({
-              text: item.text,
-              x: Math.round(item.x * 100) / 100,
-              y: Math.round(item.y * 100) / 100,
-              width: Math.round(item.width * 100) / 100,
-              height: Math.round(item.height * 100) / 100,
-            })),
-            fullText: page.items.map(item => item.text).join(" "),
+        pnlValidation: {
+          isValid: parsed.pnlValidation.isValid,
+          totalCalculatedPnl: parsed.pnlValidation.totalCalculatedPnl,
+          totalReportedPnl: parsed.pnlValidation.totalReportedPnl,
+          totalDiscrepancy: parsed.pnlValidation.totalDiscrepancy,
+          passCount: parsed.pnlValidation.passes.length,
+          failCount: parsed.pnlValidation.failures.length,
+          summary: parsed.pnlValidation.summary,
+          failures: parsed.pnlValidation.failures.map(f => ({
+            symbol: f.symbol,
+            calculatedPnl: f.calculatedPnl,
+            reportedPnl: f.reportedPnl,
+            discrepancy: f.discrepancy,
           })),
         },
+
+        feeAttribution: {
+          totalFeesAttributed: parsed.feeAttribution.totalFeesAttributed,
+          totalFeesAvailable: parsed.feeAttribution.totalFeesAvailable,
+          unattributedFees: parsed.feeAttribution.unattributedFees,
+          warnings: parsed.feeAttribution.warnings,
+        },
+
+        warnings: parsed.warnings,
       };
 
-      setLlmExport(exportData);
+      setResult(displayResult);
+      setStatus("Parsing complete! Review results below.");
 
-      // Build summary for display
-      const summary = [
-        `Parser Version: ${parseResult.parserVersion}`,
-        `Parse Time: ${parseResult.parseTimeMs}ms`,
-        `Account: ${stmt.accountSummary.accountNumber || "N/A"}`,
-        `Period: ${stmt.accountSummary.periodStart} to ${stmt.accountSummary.periodEnd}`,
-        ``,
-        `Trades Found: ${stmt.trades.length}`,
-        `Closed Positions: ${stmt.closedPositions.length}`,
-        `Open Positions: ${stmt.openPositions.length}`,
-        `Journal Entries: ${stmt.journalEntries.length}`,
-        ``,
-        `Net Liquidity: $${stmt.accountSummary.netLiquidity.toFixed(2)}`,
-        `Total Fees: $${stmt.accountSummary.totalFees.toFixed(2)}`,
-        ``,
-        `Warnings: ${stmt.warnings.length}`,
-        ...stmt.warnings.map(w => `  - ${w}`),
-      ].join("\n");
-
-      setResult(summary);
-      setStatus("Parsing complete! Check browser console for details.");
+      // Disable debug logging
+      setDebugLogging(false);
     } catch (error) {
       console.error("Parse error:", error);
       setStatus(`Error: ${error instanceof Error ? error.message : "Unknown error"}`);
       setResult(null);
-      setLlmExport(null);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const copyToClipboard = useCallback(() => {
-    if (llmExport) {
-      navigator.clipboard.writeText(JSON.stringify(llmExport, null, 2));
-      alert("Copied to clipboard!");
-    }
-  }, [llmExport]);
+  const handleImport = useCallback(async (file: File) => {
+    setIsImporting(true);
+    setImportError(null);
 
-  const downloadJson = useCallback(() => {
-    if (llmExport) {
-      const blob = new Blob([JSON.stringify(llmExport, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `parsed-statement-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+    try {
+      const { importStatement } = await import("@/lib/parsing/import-pipeline");
+
+      const importResult = await importStatement(file, { verbose: true }, (phase, progress, message) => {
+        setStatus(`${phase}: ${message} (${Math.round(progress * 100)}%)`);
+      });
+
+      if (importResult.success) {
+        setImportSuccess(true);
+        setStatus(`Import successful! Import ID: ${importResult.importId}`);
+        console.log("=== IMPORT RESULT ===");
+        console.log("Import ID:", importResult.importId);
+        console.log("Trades imported:", importResult.tradesImported);
+        console.log("Closed positions:", importResult.closedPositionsImported);
+        console.log("Cash flows:", importResult.cashFlowsImported);
+        console.log("Open positions:", importResult.openPositionsImported);
+      } else {
+        setImportSuccess(false);
+        setImportError(importResult.error || "Unknown import error");
+        setStatus("Import failed");
+      }
+    } catch (error) {
+      console.error("Import error:", error);
+      setImportSuccess(false);
+      setImportError(error instanceof Error ? error.message : "Unknown error");
+      setStatus("Import failed");
+    } finally {
+      setIsImporting(false);
     }
-  }, [llmExport]);
+  }, []);
+
+  const formatCurrency = (value: number) => {
+    const sign = value < 0 ? "-" : "";
+    return `${sign}$${Math.abs(value).toFixed(2)}`;
+  };
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl">
+    <div className="container mx-auto py-8 max-w-4xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Phase 5 Demo: PDF Parser</CardTitle>
+          <CardTitle>Phase 6 Demo: Complete Import Pipeline</CardTitle>
           <CardDescription>
-            Upload a Robinhood Derivatives monthly statement PDF to test the section parsers.
-            Results will be logged to the browser console.
+            Upload a Robinhood Derivatives statement to test parsing, FIFO P&L calculation,
+            validation against Section 5, and database import.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4">
             <input
+              id="file-input"
               type="file"
               accept=".pdf"
               onChange={handleFileChange}
-              disabled={isLoading}
+              disabled={isLoading || isImporting}
               className="block w-full text-sm text-muted-foreground
                 file:mr-4 file:py-2 file:px-4
                 file:rounded-md file:border-0
@@ -247,52 +259,308 @@ export default function DemoParsePage() {
             />
           </div>
 
-          <div className="text-sm font-medium">
-            Status: <span className={isLoading ? "text-yellow-500" : "text-muted-foreground"}>{status}</span>
+          <div className="text-sm font-medium flex items-center gap-2">
+            Status:
+            <span className={isLoading || isImporting ? "text-yellow-500" : "text-muted-foreground"}>
+              {status}
+            </span>
           </div>
+        </CardContent>
+      </Card>
 
-          {result && (
-            <div className="mt-4">
-              <h3 className="text-sm font-medium mb-2">Parse Summary:</h3>
-              <pre className="p-4 bg-muted rounded-md text-xs overflow-auto max-h-64 whitespace-pre-wrap">
-                {result}
-              </pre>
-            </div>
-          )}
+      {result && (
+        <Tabs defaultValue="summary" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="validation">P&L Validation</TabsTrigger>
+            <TabsTrigger value="fees">Fees</TabsTrigger>
+            <TabsTrigger value="import">Import</TabsTrigger>
+          </TabsList>
 
-          {llmExport && (
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium">LLM Export:</h3>
-                <Button variant="outline" size="sm" onClick={copyToClipboard}>
-                  Copy JSON
-                </Button>
-                <Button variant="outline" size="sm" onClick={downloadJson}>
-                  Download JSON
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setShowJson(!showJson)}>
-                  {showJson ? "Hide" : "Show"} JSON
-                </Button>
-              </div>
+          <TabsContent value="summary">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Parse Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Account:</span>
+                    <span className="ml-2 font-mono">{result.accountNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Period:</span>
+                    <span className="ml-2">{result.periodStart} to {result.periodEnd}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Parse Time:</span>
+                    <span className="ml-2">{result.parseTimeMs}ms</span>
+                  </div>
+                </div>
 
-              {showJson && (
-                <pre className="p-4 bg-muted rounded-md text-xs overflow-auto max-h-[600px] whitespace-pre-wrap">
-                  {JSON.stringify(llmExport, null, 2)}
-                </pre>
-              )}
-            </div>
-          )}
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Counts</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                    <div className="p-2 bg-muted rounded">
+                      <div className="text-muted-foreground">Trades</div>
+                      <div className="text-lg font-bold">{result.tradeCount}</div>
+                    </div>
+                    <div className="p-2 bg-muted rounded">
+                      <div className="text-muted-foreground">Closed Positions</div>
+                      <div className="text-lg font-bold">{result.closedPositionCount}</div>
+                    </div>
+                    <div className="p-2 bg-muted rounded">
+                      <div className="text-muted-foreground">Open Positions</div>
+                      <div className="text-lg font-bold">{result.openPositionCount}</div>
+                    </div>
+                    <div className="p-2 bg-muted rounded">
+                      <div className="text-muted-foreground">Journal Entries</div>
+                      <div className="text-lg font-bold">{result.journalEntryCount}</div>
+                    </div>
+                  </div>
+                </div>
 
-          <div className="text-xs text-muted-foreground mt-4">
-            <p><strong>Tip:</strong> Open browser DevTools (F12) → Console tab to see detailed parsed data.</p>
-            <p className="mt-1">The parser extracts:</p>
-            <ul className="list-disc list-inside mt-1 space-y-1">
-              <li>Section 2: Monthly Trade Confirmations (individual trades)</li>
-              <li>Section 4: Purchase and Sale (with prior-month trades)</li>
-              <li>Section 5: Purchase and Sale Summary (P&L source of truth)</li>
-              <li>Section 10: Account Summary (net liquidity, fees)</li>
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Account Summary (Section 10)</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Net Liquidity:</span>
+                      <span className="ml-2 font-mono">{formatCurrency(result.netLiquidity)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Ending Cash:</span>
+                      <span className="ml-2 font-mono">{formatCurrency(result.endingCash)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Total Fees:</span>
+                      <span className="ml-2 font-mono">{formatCurrency(result.totalFees)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Gross P&L:</span>
+                      <span className={`ml-2 font-mono ${result.grossPnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {formatCurrency(result.grossPnl)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">FIFO Calculation</h4>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Gross P&L:</span>
+                      <span className={`ml-2 font-mono ${result.fifoGrossPnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {formatCurrency(result.fifoGrossPnl)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Fees:</span>
+                      <span className="ml-2 font-mono">{formatCurrency(result.fifoTotalFees)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Net P&L:</span>
+                      <span className={`ml-2 font-mono ${result.fifoNetPnl >= 0 ? "text-green-500" : "text-red-500"}`}>
+                        {formatCurrency(result.fifoNetPnl)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {result.warnings.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-2">Warnings ({result.warnings.length})</h4>
+                    <ul className="text-sm text-yellow-600 space-y-1">
+                      {result.warnings.slice(0, 10).map((w, i) => (
+                        <li key={i}>• {w}</li>
+                      ))}
+                      {result.warnings.length > 10 && (
+                        <li>... and {result.warnings.length - 10} more</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="validation">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  P&L Validation vs Section 5
+                  {result.pnlValidation.isValid ? (
+                    <Badge variant="default" className="bg-green-600">VALID</Badge>
+                  ) : (
+                    <Badge variant="destructive">DISCREPANCIES</Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  Section 5 is the source of truth. We compare FIFO-calculated P&L against it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Calculated (FIFO):</span>
+                    <span className="ml-2 font-mono">{formatCurrency(result.pnlValidation.totalCalculatedPnl)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Reported (Section 5):</span>
+                    <span className="ml-2 font-mono">{formatCurrency(result.pnlValidation.totalReportedPnl)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Total Discrepancy:</span>
+                    <span className={`ml-2 font-mono ${result.pnlValidation.totalDiscrepancy > 0.01 ? "text-yellow-500" : ""}`}>
+                      {formatCurrency(result.pnlValidation.totalDiscrepancy)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Positions:</span>
+                    <span className="ml-2">
+                      <span className="text-green-500">{result.pnlValidation.passCount} pass</span>
+                      {" / "}
+                      <span className="text-red-500">{result.pnlValidation.failCount} fail</span>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-muted rounded text-sm">
+                  {result.pnlValidation.summary}
+                </div>
+
+                {result.pnlValidation.failures.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-2">Discrepancies</h4>
+                    <div className="overflow-auto max-h-64">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-2">Symbol</th>
+                            <th className="text-right p-2">Calculated</th>
+                            <th className="text-right p-2">Reported</th>
+                            <th className="text-right p-2">Diff</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.pnlValidation.failures.map((f, i) => (
+                            <tr key={i} className="border-b">
+                              <td className="p-2 font-mono text-xs">{f.symbol.slice(0, 30)}</td>
+                              <td className="p-2 text-right font-mono">{formatCurrency(f.calculatedPnl)}</td>
+                              <td className="p-2 text-right font-mono">{formatCurrency(f.reportedPnl)}</td>
+                              <td className="p-2 text-right font-mono text-yellow-500">{formatCurrency(f.discrepancy)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="fees">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Fee Attribution</CardTitle>
+                <CardDescription>
+                  Fees from Section 3 distributed to individual trades proportionally.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="p-3 bg-muted rounded">
+                    <div className="text-muted-foreground">Available (Section 3)</div>
+                    <div className="text-lg font-mono">{formatCurrency(result.feeAttribution.totalFeesAvailable)}</div>
+                  </div>
+                  <div className="p-3 bg-muted rounded">
+                    <div className="text-muted-foreground">Attributed</div>
+                    <div className="text-lg font-mono">{formatCurrency(result.feeAttribution.totalFeesAttributed)}</div>
+                  </div>
+                  <div className="p-3 bg-muted rounded">
+                    <div className="text-muted-foreground">Unattributed</div>
+                    <div className={`text-lg font-mono ${result.feeAttribution.unattributedFees > 0.01 ? "text-yellow-500" : ""}`}>
+                      {formatCurrency(result.feeAttribution.unattributedFees)}
+                    </div>
+                  </div>
+                </div>
+
+                {result.feeAttribution.warnings.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-2">Fee Attribution Warnings</h4>
+                    <ul className="text-sm text-yellow-600 space-y-1">
+                      {result.feeAttribution.warnings.map((w, i) => (
+                        <li key={i}>• {w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="import">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Database Import</CardTitle>
+                <CardDescription>
+                  Import the parsed statement into the local SQLite database.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {importSuccess === null && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Click Import to save this statement to the database. The data will be stored in your browser
+                      using OPFS (Origin Private File System) and will persist across sessions.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        const input = document.getElementById("file-input") as HTMLInputElement;
+                        if (input?.files?.[0]) {
+                          handleImport(input.files[0]);
+                        }
+                      }}
+                      disabled={isImporting}
+                    >
+                      {isImporting ? "Importing..." : "Import to Database"}
+                    </Button>
+                  </div>
+                )}
+
+                {importSuccess === true && (
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded text-green-500">
+                    ✓ Statement imported successfully! Check the Trades and Dashboard pages.
+                  </div>
+                )}
+
+                {importSuccess === false && (
+                  <div className="p-4 bg-red-500/10 border border-red-500/20 rounded text-red-500">
+                    ✗ Import failed: {importError}
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  <p><strong>Note:</strong> Duplicate statements (same account + date) will be rejected.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="text-xs text-muted-foreground space-y-2">
+            <p><strong>What this demo tests:</strong></p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>Section 2, 3, 4, 5, 6, 7, 10 parsing</li>
+              <li>FIFO cost basis calculation</li>
+              <li>P&L validation against Section 5 (source of truth)</li>
+              <li>Fee attribution from Section 3 to trades</li>
+              <li>Database persistence with duplicate detection</li>
             </ul>
-            <p className="mt-2"><strong>LLM Export:</strong> Use &quot;Copy JSON&quot; to get structured data for AI analysis and debugging.</p>
+            <p className="mt-2"><strong>Tip:</strong> Open DevTools (F12) → Console to see detailed logging.</p>
           </div>
         </CardContent>
       </Card>

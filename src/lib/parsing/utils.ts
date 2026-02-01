@@ -4,13 +4,7 @@
  * Helper functions for text anchor finding, column detection, and section parsing.
  */
 
-import {
-  parse,
-  format,
-  isValid,
-  startOfMonth,
-  endOfMonth,
-} from "date-fns";
+import { parse, format, isValid, startOfMonth, endOfMonth } from "date-fns";
 import type {
   TextItem,
   ExtractedDocument,
@@ -46,7 +40,7 @@ export const SECTION_PATTERNS: Record<SectionType, RegExp> = {
  */
 export function findTextAnchor(
   items: TextItem[],
-  pattern: RegExp
+  pattern: RegExp,
 ): { item: TextItem; index: number } | null {
   for (let i = 0; i < items.length; i++) {
     if (pattern.test(items[i].text)) {
@@ -61,7 +55,7 @@ export function findTextAnchor(
  */
 export function findAllTextAnchors(
   items: TextItem[],
-  pattern: RegExp
+  pattern: RegExp,
 ): { item: TextItem; index: number }[] {
   const results: { item: TextItem; index: number }[] = [];
   for (let i = 0; i < items.length; i++) {
@@ -110,7 +104,8 @@ export function detectSections(document: ExtractedDocument): DetectedSection[] {
       // Close the previous section if exists
       if (currentSection && currentSection.type) {
         currentSection.endIndex = i;
-        currentSection.endPage = allItems[i - 1]?.pageNumber ?? currentSection.startPage;
+        currentSection.endPage =
+          allItems[i - 1]?.pageNumber ?? currentSection.startPage;
         currentSection.items = allItems.slice(currentStartIndex, i);
         sections.push(currentSection as DetectedSection);
       }
@@ -142,7 +137,7 @@ export function detectSections(document: ExtractedDocument): DetectedSection[] {
  */
 export function getSection(
   document: ExtractedDocument,
-  type: SectionType
+  type: SectionType,
 ): DetectedSection | null {
   const sections = detectSections(document);
   return sections.find((s) => s.type === type) ?? null;
@@ -170,7 +165,7 @@ export const TRADE_COLUMN_HEADERS = [
 export function detectColumnPositions(
   headerItems: TextItem[],
   pageWidth: number,
-  columnNames: readonly string[]
+  columnNames: readonly string[],
 ): ColumnLayout {
   const columns: ColumnPosition[] = [];
 
@@ -180,7 +175,7 @@ export function detectColumnPositions(
   for (const name of columnNames) {
     // Find the header item matching this column name
     const headerItem = sorted.find((item) =>
-      item.text.toLowerCase().includes(name.toLowerCase())
+      item.text.toLowerCase().includes(name.toLowerCase()),
     );
 
     if (headerItem) {
@@ -213,12 +208,15 @@ export function detectColumnPositions(
  */
 export function getColumnForItem(
   item: TextItem,
-  layout: ColumnLayout
+  layout: ColumnLayout,
 ): string | null {
   const itemCenter = item.x + item.width / 2;
 
   for (const column of layout.columns) {
-    if (itemCenter >= column.leftAbsolute && itemCenter <= column.rightAbsolute) {
+    if (
+      itemCenter >= column.leftAbsolute &&
+      itemCenter <= column.rightAbsolute
+    ) {
       return column.name;
     }
   }
@@ -244,14 +242,14 @@ export function getColumnForItem(
  */
 export function findHeaderRow(
   sectionItems: TextItem[],
-  expectedHeaders: readonly string[]
+  expectedHeaders: readonly string[],
 ): TextItem[] | null {
   const lines = groupIntoLines(sectionItems);
 
   for (const line of lines) {
     const lineText = mergeLineText(line).toLowerCase();
     const matchCount = expectedHeaders.filter((h) =>
-      lineText.includes(h.toLowerCase())
+      lineText.includes(h.toLowerCase()),
     ).length;
 
     // If most headers are found, this is likely the header row
@@ -271,23 +269,32 @@ export function findHeaderRow(
  * Supported date formats for parsing
  */
 const DATE_FORMATS = [
-  "yyyy-MM-dd",      // ISO: 2025-09-30
-  "M/d/yyyy",        // US: 9/30/2025
-  "MM/dd/yyyy",      // US padded: 09/30/2025
-  "MMM d, yyyy",     // Long: Sep 30, 2025
-  "MMM dd, yyyy",    // Long padded: Sep 30, 2025
-  "MMMM d, yyyy",    // Full month: September 30, 2025
-  "MMMM dd, yyyy",   // Full month padded: September 30, 2025
+  "yyyy-MM-dd", // ISO: 2025-09-30
+  "M/d/yyyy", // US: 9/30/2025
+  "MM/dd/yyyy", // US padded: 09/30/2025
+  "MMM d, yyyy", // Long: Sep 30, 2025
+  "MMM dd, yyyy", // Long padded: Sep 30, 2025
+  "MMMM d, yyyy", // Full month: September 30, 2025
+  "MMMM dd, yyyy", // Full month padded: September 30, 2025
 ];
 
 /**
  * Parse a date string (various formats) and return ISO format (YYYY-MM-DD)
  * Uses date-fns for robust parsing
+ *
+ * Handles dates that may have been split across PDF text items and
+ * concatenated with spaces, e.g., "2025-09- 20" -> "2025-09-20"
  */
 export function parseDate(dateStr: string): string | null {
   if (!dateStr || !dateStr.trim()) return null;
 
-  const cleaned = dateStr.trim();
+  // Normalize: remove spaces around hyphens and slashes (common in concatenated PDF text)
+  // "2025-09- 20" -> "2025-09-20"
+  // "09/ 30/ 2025" -> "09/30/2025"
+  let cleaned = dateStr
+    .trim()
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s*\/\s*/g, "/");
 
   // Try each format until one works
   for (const fmt of DATE_FORMATS) {
@@ -450,11 +457,11 @@ export function isDataRow(lineText: string): boolean {
  */
 export function isTableContinuation(
   lineText: string,
-  expectedHeaders: readonly string[]
+  expectedHeaders: readonly string[],
 ): boolean {
   // Continuation often repeats headers
   const headerMatchCount = expectedHeaders.filter((h) =>
-    lineText.toLowerCase().includes(h.toLowerCase())
+    lineText.toLowerCase().includes(h.toLowerCase()),
   ).length;
 
   return headerMatchCount >= 2;
@@ -508,7 +515,7 @@ export function extractStatementDate(items: TextItem[]): string | null {
   for (const item of items) {
     // Look for "Statement Period: Month DD, YYYY" format
     const periodMatch = item.text.match(
-      /Statement\s+Period[:\s]+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i
+      /Statement\s+Period[:\s]+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i,
     );
     if (periodMatch) {
       return parseDate(periodMatch[1]);
@@ -516,7 +523,7 @@ export function extractStatementDate(items: TextItem[]): string | null {
 
     // Look for date ranges "MM/DD/YYYY - MM/DD/YYYY" (use end date)
     const rangeMatch = item.text.match(
-      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/
+      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/,
     );
     if (rangeMatch) {
       return parseDate(rangeMatch[2]);
@@ -536,11 +543,13 @@ export function extractStatementDate(items: TextItem[]): string | null {
  * Extract statement period (start and end dates) from document
  * Returns [periodStart, periodEnd] in ISO format
  */
-export function extractStatementPeriod(items: TextItem[]): [string | null, string | null] {
+export function extractStatementPeriod(
+  items: TextItem[],
+): [string | null, string | null] {
   // First, look for explicit date range
   for (const item of items) {
     const rangeMatch = item.text.match(
-      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/
+      /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/,
     );
     if (rangeMatch) {
       return [parseDate(rangeMatch[1]), parseDate(rangeMatch[2])];

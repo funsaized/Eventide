@@ -120,46 +120,39 @@ export async function createClosedPosition(
 }
 
 /**
- * Create multiple closed positions in a transaction
+ * Create multiple closed positions
+ * Note: Does not manage its own transaction - caller should wrap in transaction() if needed
  */
 export async function createClosedPositions(
   inputs: CreateClosedPositionInput[]
 ): Promise<void> {
   const db = await getDatabase();
 
-  await db.run("BEGIN TRANSACTION");
-
-  try {
-    for (const input of inputs) {
-      const id = input.id ?? generateId();
-      await db.run(
-        `INSERT INTO closed_positions (
-          id, import_id, platform, symbol,
-          entry_date, exit_date, entry_price, exit_price, quantity,
-          gross_pnl, fees, net_pnl, calculated_pnl, pnl_discrepancy
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.import_id,
-          input.platform,
-          input.symbol,
-          input.entry_date ?? null,
-          input.exit_date ?? null,
-          input.entry_price ?? null,
-          input.exit_price ?? null,
-          input.quantity ?? null,
-          input.gross_pnl,
-          input.fees ?? null,
-          input.net_pnl ?? null,
-          input.calculated_pnl ?? null,
-          input.pnl_discrepancy ?? null,
-        ]
-      );
-    }
-    await db.run("COMMIT");
-  } catch (error) {
-    await db.run("ROLLBACK");
-    throw error;
+  for (const input of inputs) {
+    const id = input.id ?? generateId();
+    await db.run(
+      `INSERT INTO closed_positions (
+        id, import_id, platform, symbol,
+        entry_date, exit_date, entry_price, exit_price, quantity,
+        gross_pnl, fees, net_pnl, calculated_pnl, pnl_discrepancy
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.import_id,
+        input.platform,
+        input.symbol,
+        input.entry_date ?? null,
+        input.exit_date ?? null,
+        input.entry_price ?? null,
+        input.exit_price ?? null,
+        input.quantity ?? null,
+        input.gross_pnl,
+        input.fees ?? null,
+        input.net_pnl ?? null,
+        input.calculated_pnl ?? null,
+        input.pnl_discrepancy ?? null,
+      ]
+    );
   }
 }
 
@@ -266,41 +259,34 @@ export async function createOpenPosition(
 }
 
 /**
- * Create multiple open positions in a transaction
+ * Create multiple open positions
+ * Note: Does not manage its own transaction - caller should wrap in transaction() if needed
  */
 export async function createOpenPositions(
   inputs: CreateOpenPositionInput[]
 ): Promise<void> {
   const db = await getDatabase();
 
-  await db.run("BEGIN TRANSACTION");
-
-  try {
-    for (const input of inputs) {
-      const id = input.id ?? generateId();
-      await db.run(
-        `INSERT INTO open_positions (
-          id, import_id, snapshot_date, symbol, side,
-          quantity, cost_basis, current_price, market_value, unrealized_pnl
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.import_id,
-          input.snapshot_date,
-          input.symbol,
-          input.side ?? null,
-          input.quantity ?? null,
-          input.cost_basis ?? null,
-          input.current_price ?? null,
-          input.market_value ?? null,
-          input.unrealized_pnl ?? null,
-        ]
-      );
-    }
-    await db.run("COMMIT");
-  } catch (error) {
-    await db.run("ROLLBACK");
-    throw error;
+  for (const input of inputs) {
+    const id = input.id ?? generateId();
+    await db.run(
+      `INSERT INTO open_positions (
+        id, import_id, snapshot_date, symbol, side,
+        quantity, cost_basis, current_price, market_value, unrealized_pnl
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.import_id,
+        input.snapshot_date,
+        input.symbol,
+        input.side ?? null,
+        input.quantity ?? null,
+        input.cost_basis ?? null,
+        input.current_price ?? null,
+        input.market_value ?? null,
+        input.unrealized_pnl ?? null,
+      ]
+    );
   }
 }
 
@@ -368,35 +354,28 @@ export async function createCashFlow(input: CreateCashFlowInput): Promise<CashFl
 }
 
 /**
- * Create multiple cash flows in a transaction
+ * Create multiple cash flows
+ * Note: Does not manage its own transaction - caller should wrap in transaction() if needed
  */
 export async function createCashFlows(
   inputs: CreateCashFlowInput[]
 ): Promise<void> {
   const db = await getDatabase();
 
-  await db.run("BEGIN TRANSACTION");
-
-  try {
-    for (const input of inputs) {
-      const id = input.id ?? generateId();
-      await db.run(
-        `INSERT INTO cash_flows (id, import_id, date, type, amount, description)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          input.import_id,
-          input.date,
-          input.type,
-          input.amount,
-          input.description ?? null,
-        ]
-      );
-    }
-    await db.run("COMMIT");
-  } catch (error) {
-    await db.run("ROLLBACK");
-    throw error;
+  for (const input of inputs) {
+    const id = input.id ?? generateId();
+    await db.run(
+      `INSERT INTO cash_flows (id, import_id, date, type, amount, description)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.import_id,
+        input.date,
+        input.type,
+        input.amount,
+        input.description ?? null,
+      ]
+    );
   }
 }
 

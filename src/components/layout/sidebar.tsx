@@ -8,6 +8,7 @@ import {
   BarChart3,
   Settings,
   Menu,
+  Upload,
 } from "lucide-react";
 import { NavItem } from "./nav-item";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/upload", icon: Upload, label: "Upload" },
   { href: "/trades", icon: BookOpen, label: "Trades" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/settings", icon: Settings, label: "Settings" },

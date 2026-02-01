@@ -51,14 +51,16 @@ export const SECTION2_COLUMNS: ColumnConfig[] = [
   },
   {
     name: "qtyLong",
-    headerPatterns: [/Qty\s*Long/i, /Long/i],
+    // Section 2 uses "Qty Long", Section 4 uses "Qty Buy Offset"
+    headerPatterns: [/Qty\s*Long/i, /Qty\s*Buy/i, /Long/i, /Buy/i],
     expectedPosition: 0.12,
     required: true,
     dataType: "integer",
   },
   {
     name: "qtyShort",
-    headerPatterns: [/Qty\s*Short/i, /Short/i],
+    // Section 2 uses "Qty Short", Section 4 uses "Qty Sell Offset"
+    headerPatterns: [/Qty\s*Short/i, /Qty\s*Sell/i, /Short/i, /Sell/i],
     expectedPosition: 0.16,
     required: true,
     dataType: "integer",
@@ -79,7 +81,7 @@ export const SECTION2_COLUMNS: ColumnConfig[] = [
   },
   {
     name: "contractYear",
-    headerPatterns: [/Contract\s*Year/i, /Year/i],
+    headerPatterns: [/Contract\s*Year\s*Month/i, /Contract\s*Year/i, /Year/i],
     expectedPosition: 0.52,
     required: false,
     dataType: "integer",
@@ -100,7 +102,8 @@ export const SECTION2_COLUMNS: ColumnConfig[] = [
   },
   {
     name: "tradePrice",
-    headerPatterns: [/Trade\s*Price/i, /Price/i],
+    // Section 2 uses "Trade Price", Section 4 uses "Transaction Price"
+    headerPatterns: [/Trade\s*Price/i, /Transaction\s*Price/i, /Price/i],
     expectedPosition: 0.72,
     required: true,
     dataType: "decimal",
@@ -172,6 +175,13 @@ export const SECTION7_COLUMNS: ColumnConfig[] = [
     headerPatterns: [/Symbol/i],
     expectedPosition: 0.26,
     required: true,
+    dataType: "text",
+  },
+  {
+    name: "contractYearMonth",
+    headerPatterns: [/Contract\s*Year\s*Month/i, /Contract\s*Month/i],
+    expectedPosition: 0.40,
+    required: false,
     dataType: "text",
   },
   {
@@ -323,6 +333,249 @@ export const SECTION8_COLUMNS: ColumnConfig[] = [
 ];
 
 /**
+ * Section 6: Journal Entries columns
+ */
+export const SECTION6_COLUMNS: ColumnConfig[] = [
+  {
+    name: "date",
+    headerPatterns: [/^Date$/i, /Entry\s*Date/i],
+    expectedPosition: 0.02,
+    required: true,
+    dataType: "date",
+  },
+  {
+    name: "accountType",
+    headerPatterns: [/^AT$/i, /Account\s*Type/i],
+    expectedPosition: 0.10,
+    required: false,
+    dataType: "text",
+  },
+  {
+    name: "description",
+    headerPatterns: [/Description/i, /Entry/i, /Type/i],
+    expectedPosition: 0.20,
+    required: true,
+    dataType: "text",
+  },
+  {
+    name: "currency",
+    headerPatterns: [/Currency/i, /Ccy/i, /Code/i],
+    expectedPosition: 0.70,
+    required: false,
+    dataType: "text",
+  },
+  {
+    name: "creditDebit",
+    headerPatterns: [/Credit\s*\/?\s*Debit/i, /Amount/i, /Credit/i, /Debit/i],
+    expectedPosition: 0.80,
+    required: true,
+    dataType: "currency",
+  },
+  {
+    name: "balance",
+    headerPatterns: [/Balance/i, /Running/i],
+    expectedPosition: 0.90,
+    required: false,
+    dataType: "currency",
+  },
+];
+
+/**
+ * Section 10: Account Summary - key-value pairs (not columnar table)
+ */
+export const SECTION10_FIELD_PATTERNS: Array<{
+  field: string;
+  patterns: RegExp[];
+  dataType: "currency" | "text" | "date";
+}> = [
+  {
+    field: "beginningCashBalance",
+    patterns: [/Beginning\s+Cash\s+Balance/i],
+    dataType: "currency",
+  },
+  {
+    field: "commissions",
+    patterns: [/^Commissions$/i],
+    dataType: "currency",
+  },
+  {
+    field: "exchangeFees",
+    patterns: [/Exchange\s+Fees/i],
+    dataType: "currency",
+  },
+  {
+    field: "nfaFees",
+    patterns: [/NFA\s+Fees/i],
+    dataType: "currency",
+  },
+  {
+    field: "totalCommissionsAndFees",
+    patterns: [/Total\s+Commissions\s+and\s+Fees/i],
+    dataType: "currency",
+  },
+  {
+    field: "grossProfitAndLoss",
+    patterns: [/Gross\s+Profit\s+and\s+Loss/i, /Gross\s+P\s*&?\s*L/i],
+    dataType: "currency",
+  },
+  {
+    field: "eventContractTradeCosts",
+    patterns: [/Event\s+Contract\s+Trade\s+Costs/i, /Trade\s+Costs\s*\/?\s*Proceeds/i],
+    dataType: "currency",
+  },
+  {
+    field: "cashActivity",
+    patterns: [/Cash\s+Activity/i],
+    dataType: "currency",
+  },
+  {
+    field: "endingCashBalance",
+    patterns: [/Ending\s+Cash\s+Balance/i],
+    dataType: "currency",
+  },
+  {
+    field: "openTradeEquity",
+    patterns: [/Open\s+Trade\s+Equity/i, /Unrealized\s+Profit/i],
+    dataType: "currency",
+  },
+  {
+    field: "totalEquity",
+    patterns: [/Total\s+Equity/i],
+    dataType: "currency",
+  },
+  {
+    field: "netLiquidity",
+    patterns: [/Net\s+Liquidity/i],
+    dataType: "currency",
+  },
+  {
+    field: "eventContractsMarketValue",
+    patterns: [/Event\s+Contracts?\s+Open\s+Position/i, /Open\s+Position\s+Market\s+Value/i],
+    dataType: "currency",
+  },
+  {
+    field: "initialMargin",
+    patterns: [/Initial\s+Margin/i],
+    dataType: "currency",
+  },
+  {
+    field: "marginExcessDeficit",
+    patterns: [/Margin\s+Excess/i, /Margin.*Deficit/i],
+    dataType: "currency",
+  },
+  {
+    field: "marginCall",
+    patterns: [/Margin\s+Call/i],
+    dataType: "currency",
+  },
+];
+
+/**
+ * Section 3: Trade Confirmation Summary columns
+ * Contains aggregated trade information with fees
+ */
+export const SECTION3_COLUMNS: ColumnConfig[] = [
+  {
+    name: "tradeDate",
+    headerPatterns: [/Trade\s*Date/i, /^Date$/i],
+    expectedPosition: 0.02,
+    required: true,
+    dataType: "date",
+  },
+  {
+    name: "accountType",
+    headerPatterns: [/^AT$/i, /Account\s*Type/i],
+    expectedPosition: 0.08,
+    required: false,
+    dataType: "text",
+  },
+  {
+    name: "totalQtyLong",
+    headerPatterns: [/Total\s*Qty\s*Long/i, /Qty\s*Long/i, /Long/i],
+    expectedPosition: 0.12,
+    required: true,
+    dataType: "integer",
+  },
+  {
+    name: "totalQtyShort",
+    headerPatterns: [/Total\s*Qty\s*Short/i, /Qty\s*Short/i, /Short/i],
+    expectedPosition: 0.16,
+    required: false,
+    dataType: "integer",
+  },
+  {
+    name: "subtype",
+    headerPatterns: [/Sub\s*type/i, /^Type$/i],
+    expectedPosition: 0.20,
+    required: true,
+    dataType: "text",
+  },
+  {
+    name: "symbol",
+    headerPatterns: [/Symbol/i],
+    expectedPosition: 0.24,
+    required: true,
+    dataType: "text",
+  },
+  {
+    name: "exchange",
+    headerPatterns: [/Exchange/i],
+    expectedPosition: 0.52,
+    required: false,
+    dataType: "text",
+  },
+  {
+    name: "expDate",
+    headerPatterns: [/Exp\s*Date/i, /Expiration/i],
+    expectedPosition: 0.58,
+    required: false,
+    dataType: "date",
+  },
+  {
+    name: "commissions",
+    headerPatterns: [/Commissions?/i],
+    expectedPosition: 0.66,
+    required: false,
+    dataType: "currency",
+  },
+  {
+    name: "exchangeFees",
+    headerPatterns: [/Exchange\s*Fees?/i, /Exch\s*Fees?/i],
+    expectedPosition: 0.72,
+    required: false,
+    dataType: "currency",
+  },
+  {
+    name: "nfaFees",
+    headerPatterns: [/NFA\s*Fees?/i],
+    expectedPosition: 0.78,
+    required: false,
+    dataType: "currency",
+  },
+  {
+    name: "totalFees",
+    headerPatterns: [/Total\s*(?:Commissions?\s*and\s*)?Fees?/i, /Total$/i],
+    expectedPosition: 0.84,
+    required: true,
+    dataType: "currency",
+  },
+  {
+    name: "currency",
+    headerPatterns: [/Currency/i, /Ccy/i],
+    expectedPosition: 0.90,
+    required: false,
+    dataType: "text",
+  },
+  {
+    name: "description",
+    headerPatterns: [/Description/i],
+    expectedPosition: 0.94,
+    required: false,
+    dataType: "text",
+  },
+];
+
+/**
  * Section 5: Purchase and Sale Summary columns
  */
 export const SECTION5_COLUMNS: ColumnConfig[] = [
@@ -370,7 +623,7 @@ export const SECTION5_COLUMNS: ColumnConfig[] = [
   },
   {
     name: "contractYear",
-    headerPatterns: [/Contract\s*Year/i, /Year/i],
+    headerPatterns: [/Contract\s*Year\s*Month/i, /Contract\s*Year/i, /Year/i],
     expectedPosition: 0.52,
     required: false,
     dataType: "integer",
@@ -604,10 +857,13 @@ export function getColumn(
 /**
  * Group text items into rows based on Y position, respecting page boundaries.
  * Items on different pages are NEVER grouped into the same row.
+ *
+ * Note: PDF tables often have text that wraps within cells, causing slight Y variations.
+ * The default tolerance of 12 pixels handles this while still separating distinct rows.
  */
 export function groupIntoRows(
   items: TextItem[],
-  tolerance: number = 5
+  tolerance: number = 12
 ): TextItem[][] {
   if (items.length === 0) return [];
 
