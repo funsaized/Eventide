@@ -44,112 +44,43 @@ The statement contains **multiple representations of the same data** for differe
 
 ### 2.1 Section Boundary Detection
 
+Section detection uses regex patterns matched against flattened PDF text items:
+
 ```typescript
-const SECTION_HEADERS = [
-  { id: "section2", pattern: /Monthly Trade Confirmations/i },
-  { id: "section3", pattern: /Trade Confirmation Summary/i },
-  { id: "section4", pattern: /Purchase and Sale(?!\s+Summary)/i },
-  { id: "section5", pattern: /Purchase and Sale Summary/i },
-  { id: "section6", pattern: /Journal Entries/i },
-  { id: "section7", pattern: /Open Positions(?!\s+Summary)/i },
-  { id: "section8", pattern: /Open Position Summary/i },
-  { id: "section9", pattern: /Margin Calls/i },
-  { id: "section10", pattern: /Account Summary/i },
-] as const;
-
-interface SectionBoundary {
-  id: string;
-  startIndex: number;      // Index in TextItem array
-  startPage: number;
-  endIndex: number | null; // null if extends to end of document
-  endPage: number | null;
-}
-
-function detectSectionBoundaries(textItems: TextItem[]): SectionBoundary[] {
-  const boundaries: SectionBoundary[] = [];
-  
-  for (let i = 0; i < textItems.length; i++) {
-    const item = textItems[i];
-    
-    for (const section of SECTION_HEADERS) {
-      if (section.pattern.test(item.text)) {
-        // Close previous section
-        if (boundaries.length > 0) {
-          const prev = boundaries[boundaries.length - 1];
-          prev.endIndex = i - 1;
-          prev.endPage = textItems[i - 1]?.page ?? prev.startPage;
-        }
-        
-        boundaries.push({
-          id: section.id,
-          startIndex: i,
-          startPage: item.page,
-          endIndex: null,
-          endPage: null,
-        });
-        break;
-      }
-    }
-  }
-  
-  return boundaries;
-}
+const SECTION_DEFINITIONS: SectionDefinition[] = [
+  { id: "section1", pattern: /^Robinhood\s+Derivatives/i, required: true },
+  { id: "section2", pattern: /Monthly\s+Trade\s+Confirmations?/i, required: true },
+  { id: "section3", pattern: /Trade\s+Confirmation\s+Summary/i, required: false },
+  { id: "section4", pattern: /Purchase\s+and\s+Sale(?!\s+Summary)/i, required: true },
+  { id: "section5", pattern: /Purchase\s+and\s+Sale\s+Summary/i, required: true },
+  { id: "section6", pattern: /Journal\s+Entries/i, required: true },
+  { id: "section7", pattern: /Open\s+Positions?(?!\s+Summary)/i, required: false },
+  { id: "section8", pattern: /Open\s+Position\s+Summary/i, required: false },
+  { id: "section9", pattern: /Margin\s+Calls?/i, required: false },
+  { id: "section10", pattern: /Account\s+Summary/i, required: true },
+];
 ```
+
+**Handling Split Headers**: Headers like "Monthly Trade Confirmations" may be split across multiple text items. The boundary detector combines adjacent items on the same line before matching.
 
 ### 2.2 Column Position Calibration
 
-The PDF doesn't have explicit column delimiters. Use spatial clustering to associate values with columns.
+The PDF doesn't have explicit column delimiters. Use spatial clustering to associate values with columns:
 
 ```typescript
-interface ColumnDefinition {
+interface ColumnPosition {
   name: string;
-  xMin: number;  // Percentage from left edge (0-100)
-  xMax: number;
+  leftPercent: number;   // Percentage of page width (0-1)
+  rightPercent: number;
+  leftAbsolute: number;
+  rightAbsolute: number;
 }
 
 function calibrateColumns(
-  headerRow: TextItem[],
+  headerItems: TextItem[],
+  expectedColumns: ColumnConfig[],
   pageWidth: number
-): ColumnDefinition[] {
-  // Sort by x-position
-  const sorted = [...headerRow].sort((a, b) => a.x - b.x);
-  
-  const columns: ColumnDefinition[] = [];
-  
-  for (let i = 0; i < sorted.length; i++) {
-    const item = sorted[i];
-    const xPercent = (item.x / pageWidth) * 100;
-    
-    // Column extends from current x to next column's x (or 100%)
-    const nextX = sorted[i + 1] 
-      ? (sorted[i + 1].x / pageWidth) * 100 
-      : 100;
-    
-    columns.push({
-      name: normalizeColumnName(item.text),
-      xMin: xPercent,
-      xMax: nextX,
-    });
-  }
-  
-  return columns;
-}
-
-function assignToColumn(
-  item: TextItem,
-  columns: ColumnDefinition[],
-  pageWidth: number
-): string | null {
-  const xPercent = (item.x / pageWidth) * 100;
-  
-  for (const col of columns) {
-    if (xPercent >= col.xMin && xPercent < col.xMax) {
-      return col.name;
-    }
-  }
-  
-  return null;
-}
+): ColumnLayout;
 ```
 
 ---
@@ -159,21 +90,21 @@ function assignToColumn(
 ### 3.1 Schema
 
 ```typescript
-interface TradeConfirmationRow {
-  tradeDate: Date;
-  accountType: string;           // "SW" = Swaps/Event Contracts
-  qtyLong: number;
-  qtyShort: number;
+interface TradeConfirmation {
+  tradeDate: string;           // ISO format YYYY-MM-DD
+  accountType: string;         // "SW" = Swaps/Event Contracts
+  qtyLong: number;             // Bought contracts
+  qtyShort: number;            // Sold contracts
   subtype: "YES" | "NO";
   symbol: string;
-  contractYear: number;
-  contractMonth: number;
-  exchange: string;              // "Kalshi"
-  expDate: Date;
-  tradePrice: Decimal;           // 0.00 to 1.00
-  currency: string;              // "USD"
+  contractYear: number | null;
+  exchange: string;            // "Kalshi"
+  expDate: string | null;      // Settlement date
+  tradePrice: number;          // 0.00 to 1.00
+  currency: string;            // "USD"
   tradeType: "Trade" | "Final Settlement";
-  description: string;           // Human-readable name
+  description: string;
+  source: "section2" | "section4";
 }
 ```
 
@@ -183,12 +114,11 @@ interface TradeConfirmationRow {
 |------------|-------|-------|
 | Trade Date | tradeDate | Format: YYYY-MM-DD |
 | AT | accountType | Always "SW" for event contracts |
-| Qty Long | qtyLong | Number of contracts (YES position) |
-| Qty Short | qtyShort | Number of contracts (NO position) |
+| Qty Long | qtyLong | Number of contracts bought |
+| Qty Short | qtyShort | Number of contracts sold |
 | Subtype | subtype | "YES" or "NO" |
 | Symbol | symbol | Contract identifier |
 | Contract Year | contractYear | 4-digit year |
-| Month | contractMonth | Not present - derived from symbol |
 | Exchange | exchange | "Kalshi" |
 | Exp Date | expDate | Settlement date |
 | Trade Price | tradePrice | Price per contract |
@@ -196,74 +126,7 @@ interface TradeConfirmationRow {
 | Trade Type | tradeType | "Trade" or "Final Settlement" |
 | Description | description | Human-readable event name |
 
-### 3.3 Parsing Logic
-
-```typescript
-function parseSection2(
-  textItems: TextItem[],
-  boundary: SectionBoundary
-): TradeConfirmationRow[] {
-  const sectionItems = textItems.slice(boundary.startIndex, boundary.endIndex ?? undefined);
-  
-  // 1. Find column header row (first row after section header)
-  const headerRowIndex = findHeaderRow(sectionItems, [
-    "Trade Date", "AT", "Qty Long", "Subtype", "Symbol"
-  ]);
-  
-  if (headerRowIndex === -1) {
-    throw new ParseError("Section 2 column headers not found");
-  }
-  
-  // 2. Calibrate columns from header row
-  const headerItems = extractRowItems(sectionItems, headerRowIndex);
-  const columns = calibrateColumns(headerItems, PAGE_WIDTH);
-  
-  // 3. Extract data rows
-  const rows: TradeConfirmationRow[] = [];
-  let currentRow: Partial<TradeConfirmationRow> = {};
-  let lastY = -1;
-  
-  for (let i = headerRowIndex + 1; i < sectionItems.length; i++) {
-    const item = sectionItems[i];
-    
-    // Check for new section (stop parsing)
-    if (isNewSectionHeader(item.text)) break;
-    
-    // Check for repeated header (multi-page table)
-    if (isColumnHeader(item.text, columns)) continue;
-    
-    // Detect row change by Y-position delta
-    const isNewRow = lastY !== -1 && Math.abs(item.y - lastY) > ROW_THRESHOLD;
-    
-    if (isNewRow && isRowComplete(currentRow)) {
-      rows.push(normalizeRow(currentRow));
-      currentRow = {};
-    }
-    
-    // Assign value to column
-    const columnName = assignToColumn(item, columns, PAGE_WIDTH);
-    if (columnName) {
-      // Handle multi-line values (e.g., wrapped symbols)
-      if (currentRow[columnName] && columnName === "symbol") {
-        currentRow[columnName] += " " + item.text;
-      } else {
-        currentRow[columnName] = parseColumnValue(columnName, item.text);
-      }
-    }
-    
-    lastY = item.y;
-  }
-  
-  // Don't forget last row
-  if (isRowComplete(currentRow)) {
-    rows.push(normalizeRow(currentRow));
-  }
-  
-  return rows;
-}
-```
-
-### 3.4 Key Patterns
+### 3.3 Key Patterns
 
 **Trade Type Identification**:
 - `tradeType = "Trade"`: Entry or exit trade
@@ -274,542 +137,457 @@ function parseSection2(
 - `1.00000000` = `1.00` = YES outcome DID happen
 
 **Position Direction**:
-- `qtyLong > 0` with `subtype = "YES"`: Bought YES contracts
-- `qtyLong > 0` with `subtype = "NO"`: Bought NO contracts (betting against)
+- `qtyLong > 0`: Bought contracts (opening or covering)
+- `qtyShort > 0`: Sold contracts (closing or shorting)
 
 ---
 
-## 4. Section 5: Purchase and Sale Summary
+## 4. Trade Merging & Deduplication
 
-### 4.1 Schema
+### 4.1 Section 2 vs Section 4
 
-This is the **authoritative source** for P&L figures. Our calculated P&L must match these values.
+Section 2 contains only current month trades. Section 4 contains all trades that settled this month, including those opened in prior months.
+
+**Deduplication Strategy**:
+```typescript
+function areTradesDuplicate(trade1: TradeConfirmation, trade2: TradeConfirmation): boolean {
+  return (
+    trade1.tradeDate === trade2.tradeDate &&
+    trade1.symbol === trade2.symbol &&
+    trade1.subtype === trade2.subtype &&
+    trade1.tradePrice === trade2.tradePrice &&
+    trade1.qtyLong === trade2.qtyLong &&
+    trade1.qtyShort === trade2.qtyShort
+    // NOTE: Do NOT compare tradeType - Section 4 may default to "Trade"
+    // while Section 2 has accurate "Final Settlement" values
+  );
+}
+```
+
+---
+
+## 5. Critical: Sell-as-Buy-Opposite Logic
+
+### 5.1 The Core Insight
+
+**Robinhood represents "selling" as "buying the opposite side":**
+- Selling YES @ $0.30 is shown as: buying NO @ $0.70 (since YES + NO = $1.00)
+- Selling NO @ $0.40 is shown as: buying YES @ $0.60
+
+This means when processing trades:
+- A YES Trade could be: Opening YES **OR** Closing NO (by selling NO)
+- A NO Trade could be: Opening NO **OR** Closing YES (by selling YES)
+
+### 5.2 Round-Trip Detection
+
+When a symbol has both YES and NO trades with matching quantities, it's a **round-trip** (buy then sell):
+
+```typescript
+const isRoundTrip = yesTrades.length > 0 && noTrades.length > 0 && yesQty === noQty;
+
+if (isRoundTrip) {
+  // YES trades are OPENS
+  for (const trade of yesTrades) {
+    entries.push({ ...trade, side: "YES", type: "OPEN" });
+  }
+
+  // NO trades are CLOSES of YES (sell YES = buy NO)
+  // Close price = 1 - NO_price (the actual sell price)
+  for (const trade of noTrades) {
+    const closePrice = 1 - trade.tradePrice;
+    entries.push({ ...trade, side: "YES", type: "CLOSE", price: closePrice });
+  }
+}
+```
+
+### 5.3 Mixed Scenarios
+
+When YES and NO quantities don't match, use FIFO matching in chronological order:
+
+```typescript
+// Sort all trades by date
+const allTrades = [...symbolTrades].sort((a, b) =>
+  new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime()
+);
+
+// Track open positions
+let openYes = 0;
+let openNo = 0;
+
+for (const trade of allTrades) {
+  const side = trade.subtype;
+  const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
+  const price = trade.tradePrice;
+
+  if (side === "YES") {
+    if (openNo > 0) {
+      // This YES trade might be closing a NO position (sell NO = buy YES)
+      const closeQty = Math.min(quantity, openNo);
+      const closePrice = 1 - price;
+      entries.push({ side: "NO", type: "CLOSE", quantity: closeQty, price: closePrice });
+      openNo -= closeQty;
+    }
+    // Remaining quantity opens YES
+    entries.push({ side: "YES", type: "OPEN", quantity: quantity - closeQty, price });
+    openYes += quantity - closeQty;
+  } else {
+    // Mirror logic for NO trades
+  }
+}
+```
+
+### 5.4 Single-Sided Trades
+
+When only one side has trades, they're straightforward opens:
+
+```typescript
+for (const trade of symbolTrades) {
+  entries.push({
+    side: trade.subtype,
+    type: "OPEN",
+    quantity: trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort,
+    price: trade.tradePrice,
+  });
+}
+```
+
+---
+
+## 6. Settlement Handling
+
+### 6.1 Processing Settlements
+
+Settlements (tradeType = "Final Settlement") indicate contract resolution:
+
+```typescript
+for (const trade of trades) {
+  if (trade.tradeType !== "Final Settlement") continue;
+
+  const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
+  const statementSide = trade.subtype;
+  const statementPrice = trade.tradePrice;
+
+  // Add settlement for the statement side
+  entries.push({
+    symbol: trade.symbol,
+    side: statementSide,
+    type: "SETTLE",
+    price: statementPrice,
+    settlementPrice: statementPrice,
+    quantity,
+  });
+
+  // Generate opposite side settlement (if not already present)
+  const oppositeKey = `${trade.symbol}|${statementSide === "YES" ? "NO" : "YES"}`;
+  if (!existingSettlements.has(oppositeKey)) {
+    entries.push({
+      symbol: trade.symbol,
+      side: statementSide === "YES" ? "NO" : "YES",
+      type: "SETTLE",
+      price: 1 - statementPrice,
+      settlementPrice: 1 - statementPrice,
+      quantity,
+    });
+  }
+}
+```
+
+### 6.2 Cross-Symbol Settlements (Sports Games)
+
+Sports games have opposing team symbols that are mutually exclusive:
+- `KXNFLGAME-25SEP08MINCHI-MIN` (Minnesota)
+- `KXNFLGAME-25SEP08MINCHI-CHI` (Chicago)
+
+If one team wins (settles at $1.00), the other loses (settles at $0.00):
+
+```typescript
+function findOpposingTeamSymbol(symbol: string, allSymbols: Set<string>): string | null {
+  const lastDashIndex = symbol.lastIndexOf('-');
+  if (lastDashIndex === -1) return null;
+
+  const baseSymbol = symbol.substring(0, lastDashIndex); // "KXNFLGAME-25SEP08MINCHI"
+  const teamCode = symbol.substring(lastDashIndex + 1); // "MIN"
+
+  // Find other symbol with same base but different team
+  for (const otherSymbol of allSymbols) {
+    if (otherSymbol === symbol) continue;
+    const otherBase = otherSymbol.substring(0, otherSymbol.lastIndexOf('-'));
+    if (otherBase === baseSymbol) {
+      return otherSymbol;
+    }
+  }
+  return null;
+}
+```
+
+When a settlement is found for one team, generate synthetic settlements for the opposing team.
+
+---
+
+## 7. Section 5: Purchase and Sale Summary
+
+### 7.1 Schema
 
 ```typescript
 interface PurchaseSaleSummaryRow {
-  tradeDate: Date;              // Month of activity
+  tradeDate: string;
   accountType: string;
   totalQtyLong: number;
   totalQtyShort: number;
   subtype: "YES" | "NO";
   symbol: string;
-  contractYear: number;
-  contractMonth: number;
+  contractYear: number | null;
   exchange: string;
-  expDate: Date;
-  grossPnl: Decimal;            // SOURCE OF TRUTH for P&L
+  expDate: string | null;
+  grossPnl: number;    // SOURCE OF TRUTH for P&L
   currency: string;
+  description: string;
+}
+
+interface PairedPosition {
+  symbol: string;
+  expDate: string | null;
+  yesRow: PurchaseSaleSummaryRow | null;
+  noRow: PurchaseSaleSummaryRow | null;
+  netPnl: number;          // Sum of YES and NO grossPnl
+  totalQuantity: number;
   description: string;
 }
 ```
 
-### 4.2 P&L Interpretation
+### 7.2 P&L Pairing
 
-The Purchase and Sale Summary shows **two rows per resolved position**:
-
-1. **YES row**: Shows the cost basis (negative if you bought YES)
-2. **NO row**: Shows the settlement proceeds (positive if YES won)
-
-**Example - Philadelphia game (YES won)**:
-```
-Symbol: KXNFLGAME-25SEP04DALPHI-PHI
-YES row: grossPnl = -$102.20  (cost of 130 YES contracts)
-NO row:  grossPnl = +$130.00  (settlement at $1.00 × 130)
-Net P&L: +$27.80
-```
-
-### 4.3 Parsing Logic
+Section 5 shows **two rows per resolved position** (YES row + NO row):
 
 ```typescript
-function parseSection5(
-  textItems: TextItem[],
-  boundary: SectionBoundary
-): PurchaseSaleSummaryRow[] {
-  // Similar structure to Section 2 parsing
-  // Key difference: grossPnl column contains P&L figures
-  
-  const rows = extractRows(textItems, boundary);
-  
-  return rows.map(row => ({
-    ...row,
-    grossPnl: parseDecimal(row.grossPnl), // Handle negative values
+function pairPositionRows(rows: PurchaseSaleSummaryRow[]): PairedPosition[] {
+  const positionMap = new Map<string, { yesRow: ...; noRow: ... }>();
+
+  for (const row of rows) {
+    const key = `${row.symbol}_${row.expDate ?? ""}`;
+    const existing = positionMap.get(key) ?? { yesRow: null, noRow: null };
+
+    if (row.subtype === "YES") {
+      existing.yesRow = row;
+    } else {
+      existing.noRow = row;
+    }
+    positionMap.set(key, existing);
+  }
+
+  // Calculate net P&L for each position
+  return Array.from(positionMap.entries()).map(([key, { yesRow, noRow }]) => ({
+    symbol: yesRow?.symbol ?? noRow?.symbol,
+    expDate: yesRow?.expDate ?? noRow?.expDate,
+    yesRow,
+    noRow,
+    netPnl: (yesRow?.grossPnl ?? 0) + (noRow?.grossPnl ?? 0),
+    totalQuantity: Math.max(
+      (yesRow?.totalQtyLong ?? 0) + (yesRow?.totalQtyShort ?? 0),
+      (noRow?.totalQtyLong ?? 0) + (noRow?.totalQtyShort ?? 0)
+    ),
   }));
 }
-
-// Helper to pair YES/NO rows for same position
-function pairPositionRows(
-  rows: PurchaseSaleSummaryRow[]
-): Map<string, { yes: PurchaseSaleSummaryRow; no: PurchaseSaleSummaryRow }> {
-  const pairs = new Map();
-  
-  for (const row of rows) {
-    // Key by symbol + expDate (unique per contract)
-    const key = `${row.symbol}_${row.expDate.toISOString()}`;
-    
-    if (!pairs.has(key)) {
-      pairs.set(key, { yes: null, no: null });
-    }
-    
-    if (row.subtype === "YES") {
-      pairs.get(key).yes = row;
-    } else {
-      pairs.get(key).no = row;
-    }
-  }
-  
-  return pairs;
-}
 ```
 
 ---
 
-## 5. Section 6: Journal Entries
+## 8. FIFO P&L Calculation
 
-### 5.1 Schema
-
-```typescript
-interface JournalEntryRow {
-  date: Date;
-  accountType: string;
-  description: string;
-  currency: string;
-  creditDebit: Decimal;  // Positive = deposit, Negative = withdrawal
-}
-```
-
-### 5.2 Cash Flow Classification
+### 8.1 Trade Entry Format
 
 ```typescript
-type CashFlowType = "DEPOSIT" | "WITHDRAWAL" | "INTEREST" | "FEE" | "ADJUSTMENT";
-
-function classifyCashFlow(row: JournalEntryRow): CashFlowType {
-  const desc = row.description.toLowerCase();
-  
-  if (row.creditDebit > 0) {
-    if (desc.includes("interest")) return "INTEREST";
-    return "DEPOSIT";
-  } else {
-    if (desc.includes("fee")) return "FEE";
-    return "WITHDRAWAL";
-  }
-}
-```
-
----
-
-## 6. Section 7: Open Positions
-
-### 6.1 Schema
-
-```typescript
-interface OpenPositionRow {
-  dateOpened: Date;
-  accountType: string;
-  quantityBuy: number;
-  quantitySell: number;
-  subtype: "YES" | "NO";
-  symbol: string;
-  contractYear: number;
-  contractMonth: number;
-  exchange: string;
-  expDate: Date;
-  tradePrice: Decimal;           // Entry price
-  currency: string;
-  settlementPrice: Decimal;      // Current market price
-  tradeType: string;             // "event contract"
-  description: string;
-}
-```
-
-### 6.2 Unrealized P&L Calculation
-
-```typescript
-function calculateUnrealizedPnl(position: OpenPositionRow): Decimal {
-  const quantity = position.quantityBuy || position.quantitySell;
-  const entryPrice = position.tradePrice;
-  const currentPrice = position.settlementPrice;
-  
-  // For YES positions: profit if current > entry
-  // For NO positions: profit if current < entry
-  if (position.subtype === "YES") {
-    return (currentPrice - entryPrice) * quantity;
-  } else {
-    return (entryPrice - currentPrice) * quantity;
-  }
-}
-```
-
----
-
-## 7. Section 10: Account Summary
-
-### 7.1 Schema
-
-```typescript
-interface AccountSummaryRow {
-  field: string;
-  swValue: Decimal;    // SW (Swaps) column
-  usValue: Decimal;    // US column (usually 0)
-}
-
-interface AccountSummary {
-  beginningCashBalance: Decimal;
-  commissions: Decimal;
-  exchangeFees: Decimal;
-  nfaFees: Decimal;
-  totalCommissionsAndFees: Decimal;
-  grossProfitAndLoss: Decimal;
-  eventContractTradeCosts: Decimal;
-  cashActivity: Decimal;
-  endingCashBalance: Decimal;
-  openTradeEquity: Decimal;
-  totalEquity: Decimal;
-  netLiquidity: Decimal;
-  eventContractsMarketValue: Decimal;
-  initialMargin: Decimal;
-  marginExcessDeficit: Decimal;
-  marginCall: Decimal;
-}
-```
-
-### 7.2 Parsing Logic
-
-Section 10 uses a different format: field labels in first column, values in subsequent columns.
-
-```typescript
-function parseSection10(
-  textItems: TextItem[],
-  boundary: SectionBoundary
-): AccountSummary {
-  const fieldMap: Record<string, keyof AccountSummary> = {
-    "Beginning Cash Balance": "beginningCashBalance",
-    "Commissions": "commissions",
-    "Exchange Fees": "exchangeFees",
-    "NFA Fees": "nfaFees",
-    "Total Commissions and Fees": "totalCommissionsAndFees",
-    "Gross Profit and Loss": "grossProfitAndLoss",
-    "Event Contract Trade Costs / Proceeds": "eventContractTradeCosts",
-    "Cash Activity": "cashActivity",
-    "Ending Cash Balance": "endingCashBalance",
-    "Open Trade Equity / Unrealized Profit and Loss": "openTradeEquity",
-    "Total Equity": "totalEquity",
-    "Net Liquidity": "netLiquidity",
-    "Event Contracts Open Position Market Value": "eventContractsMarketValue",
-    "Initial Margin": "initialMargin",
-    "Margin Excess / Deficit": "marginExcessDeficit",
-    "Margin Call": "marginCall",
-  };
-  
-  const summary: Partial<AccountSummary> = {};
-  
-  // Parse as key-value pairs where first text item is field name
-  // and subsequent items on same row are values
-  const rows = groupByRow(textItems.slice(boundary.startIndex));
-  
-  for (const row of rows) {
-    if (row.length < 2) continue;
-    
-    const fieldLabel = row[0].text.trim();
-    const fieldKey = fieldMap[fieldLabel];
-    
-    if (fieldKey) {
-      // SW column is typically the second value
-      const swValue = parseDecimal(row[1]?.text ?? "0");
-      summary[fieldKey] = swValue;
-    }
-  }
-  
-  return summary as AccountSummary;
-}
-```
-
----
-
-## 8. Position Reconstruction Algorithm
-
-### 8.1 The Challenge
-
-A single "position" may span:
-- Multiple entry trades at different prices
-- Multiple exit trades or settlements
-- Prior statement periods (trades opened before this month)
-
-### 8.2 Position Ledger
-
-```typescript
-interface PositionLedger {
-  positions: Map<string, Position>;  // Keyed by symbol + subtype
-}
-
-interface Position {
-  symbol: string;
-  subtype: "YES" | "NO";
-  description: string;
-  trades: TradeEntry[];
-  settlement: SettlementEntry | null;
-  status: "OPEN" | "CLOSED";
-}
-
 interface TradeEntry {
-  date: Date;
+  date: string;
+  symbol: string;
+  side: "YES" | "NO";
   quantity: number;
-  price: Decimal;
-  fees: Decimal;
-  source: "section2" | "section4";  // Track origin for deduplication
-}
-
-interface SettlementEntry {
-  date: Date;
-  quantity: number;
-  settlementPrice: Decimal;  // 0.00 or 1.00 (or partial)
+  price: number;
+  type: "OPEN" | "CLOSE" | "SETTLE";
+  settlementPrice?: number;
+  fees?: number;
 }
 ```
 
-### 8.3 Building the Ledger
+### 8.2 FIFO Matching Algorithm
+
+**Critical**: Sort trades by date, with OPEN trades processed before CLOSE/SETTLE on the same date:
 
 ```typescript
-function buildPositionLedger(
-  section2Trades: TradeConfirmationRow[],
-  section4Trades: PurchaseSaleRow[],
-  section5Summary: PurchaseSaleSummaryRow[]
-): PositionLedger {
-  const ledger: PositionLedger = { positions: new Map() };
-  
-  // Step 1: Process Section 2 trades (current month only)
-  for (const trade of section2Trades) {
-    const key = `${trade.symbol}_${trade.subtype}`;
-    
-    if (!ledger.positions.has(key)) {
-      ledger.positions.set(key, {
-        symbol: trade.symbol,
-        subtype: trade.subtype,
-        description: trade.description,
-        trades: [],
-        settlement: null,
-        status: "OPEN",
-      });
-    }
-    
-    const position = ledger.positions.get(key)!;
-    
-    if (trade.tradeType === "Final Settlement") {
-      position.settlement = {
-        date: trade.expDate,
-        quantity: trade.qtyLong || trade.qtyShort,
-        settlementPrice: trade.tradePrice,
-      };
-      position.status = "CLOSED";
-    } else {
-      position.trades.push({
-        date: trade.tradeDate,
-        quantity: trade.qtyLong || trade.qtyShort,
-        price: trade.tradePrice,
-        fees: new Decimal(0), // Fees come from Section 3
-        source: "section2",
-      });
-    }
+const sortedTrades = [...trades].sort((a, b) => {
+  const dateCompare = new Date(a.date).getTime() - new Date(b.date).getTime();
+  if (dateCompare !== 0) return dateCompare;
+
+  // Same date: OPEN before CLOSE/SETTLE (ensures buys are in ledger before sells)
+  const typeOrder = { OPEN: 0, CLOSE: 1, SETTLE: 2 };
+  return typeOrder[a.type] - typeOrder[b.type];
+});
+```
+
+**Position Ledger**:
+```typescript
+class PositionLedger {
+  private positions: Map<string, PositionLot[]> = new Map();
+
+  addOpeningTrade(trade: TradeEntry): void {
+    const key = `${trade.symbol}|${trade.side}`;
+    const lots = this.positions.get(key) ?? [];
+    lots.push({
+      date: trade.date,
+      price: trade.price,
+      quantity: trade.quantity,
+      fees: trade.fees ?? 0,
+    });
+    this.positions.set(key, lots);
   }
-  
-  // Step 2: Incorporate prior-month trades from Section 4
-  // These are trades that SETTLED this month but were OPENED earlier
-  for (const trade of section4Trades) {
-    const key = `${trade.symbol}_${trade.subtype}`;
-    const position = ledger.positions.get(key);
-    
-    // If this trade exists in Section 2, skip (avoid double-counting)
-    const isDuplicate = position?.trades.some(t => 
-      isSameDay(t.date, trade.tradeDate) &&
-      t.quantity === trade.quantity &&
-      t.price.equals(trade.price)
-    );
-    
-    if (!isDuplicate && trade.tradeType === "Trade") {
-      // This is a prior-month trade
-      if (!position) {
-        ledger.positions.set(key, {
-          symbol: trade.symbol,
-          subtype: trade.subtype,
-          description: trade.description,
-          trades: [],
-          settlement: null,
-          status: "OPEN",
-        });
-      }
-      
-      ledger.positions.get(key)!.trades.push({
-        date: trade.tradeDate,
-        quantity: trade.quantity,
-        price: trade.price,
-        fees: new Decimal(0),
-        source: "section4",
+
+  closePosition(trade: TradeEntry): ClosedLot[] {
+    const key = `${trade.symbol}|${trade.side}`;
+    const lots = this.positions.get(key) ?? [];
+    const closedLots: ClosedLot[] = [];
+
+    let remainingQty = trade.quantity;
+    const exitPrice = trade.settlementPrice ?? trade.price;
+
+    // FIFO: close oldest lots first
+    while (remainingQty > 0 && lots.length > 0) {
+      const oldestLot = lots[0];
+      const matchQty = Math.min(remainingQty, oldestLot.quantity);
+
+      const grossPnl = matchQty * (exitPrice - oldestLot.price);
+
+      closedLots.push({
+        entryPrice: oldestLot.price,
+        exitPrice,
+        quantity: matchQty,
+        grossPnl,
       });
+
+      oldestLot.quantity -= matchQty;
+      remainingQty -= matchQty;
+
+      if (oldestLot.quantity <= 0) lots.shift();
     }
+
+    return closedLots;
   }
-  
-  return ledger;
 }
 ```
 
 ---
 
-## 9. P&L Calculation & Validation
+## 9. P&L Validation
 
-### 9.1 FIFO Cost Basis Calculation
+### 9.1 Validation Against Section 5
 
-For event contracts, P&L is simpler than traditional securities because contracts settle at 0 or 1 (or exit via opposing trade).
+Section 5 is the **source of truth**. Calculated P&L must match within tolerance:
 
 ```typescript
-function calculatePositionPnl(position: Position): CalculatedPnl {
-  // Sort trades chronologically (FIFO)
-  const sortedTrades = [...position.trades].sort(
-    (a, b) => a.date.getTime() - b.date.getTime()
-  );
-  
-  // Calculate total cost basis
-  const totalQuantity = sortedTrades.reduce((sum, t) => sum + t.quantity, 0);
-  const totalCost = sortedTrades.reduce(
-    (sum, t) => sum.plus(t.price.times(t.quantity)), 
-    new Decimal(0)
-  );
-  const avgEntryPrice = totalCost.div(totalQuantity);
-  
-  // Calculate proceeds based on settlement
-  let proceeds: Decimal;
-  
-  if (position.settlement) {
-    // Contract settled at expiration
-    proceeds = position.settlement.settlementPrice.times(totalQuantity);
-  } else if (position.status === "CLOSED") {
-    // Position closed via opposing trade (need to find exit trades)
-    // This is more complex - involves matching exit trades
-    proceeds = calculateExitProceeds(position);
-  } else {
-    // Position still open - no realized P&L
-    return { grossPnl: new Decimal(0), isRealized: false };
+const PNL_TOLERANCE = 0.01; // ±$0.01 per position
+
+function validatePnlAgainstSection5(
+  fifoResults: Map<string, FifoResult>,
+  section5Positions: PairedPosition[]
+): ValidationResult {
+  // Group FIFO results by symbol (combining YES and NO sides)
+  const fifoBySymbol = new Map<string, number>();
+  for (const result of fifoResults.values()) {
+    const existing = fifoBySymbol.get(result.symbol) ?? 0;
+    fifoBySymbol.set(result.symbol, existing + result.totalGrossPnl);
   }
-  
-  const grossPnl = proceeds.minus(totalCost);
-  
-  return {
-    grossPnl,
-    isRealized: true,
-    totalQuantity,
-    avgEntryPrice,
-    exitPrice: position.settlement?.settlementPrice ?? new Decimal(0),
-  };
+
+  // Compare each Section 5 position
+  for (const s5Position of section5Positions) {
+    const calculatedPnl = fifoBySymbol.get(s5Position.symbol) ?? 0;
+    const reportedPnl = s5Position.netPnl;
+    const discrepancy = Math.abs(calculatedPnl - reportedPnl);
+
+    if (discrepancy > PNL_TOLERANCE) {
+      // Categorize the failure
+    }
+  }
 }
 ```
 
-### 9.2 Validation Against Section 5
+### 9.2 Discrepancy Categories
 
-Section 5 is the source of truth. Our calculations must match within tolerance.
+**Prior-Period Issues**: `calculatedPnl = 0` but `reportedPnl ≠ 0`
+- Caused by opening trades from before the statement's look-back period
+- These positions have no opening trades in our data
+
+**Both-Sided Issues**: Position has both YES and NO rows in Section 5
+- Complex matching scenarios that the sell-as-buy-opposite logic may not handle perfectly
+- These are often positions where the user traded both sides
+
+**Blocking Decision**:
+```typescript
+function shouldBlockImport(result: ValidationResult, strictMode: boolean): boolean {
+  if (result.isValid) return false;
+
+  if (strictMode) return true;
+
+  // Use adjustedDiscrepancy (excludes prior-period and both-sided issues)
+  const totalPnl = Math.abs(result.totalReportedPnl);
+  if (totalPnl > 0 && result.adjustedDiscrepancy / totalPnl > 0.1) {
+    return true; // >10% discrepancy
+  }
+
+  return false;
+}
+```
+
+---
+
+## 10. Fee Attribution
+
+### 10.1 Section 3 Fee Summaries
+
+Section 3 provides fee summaries aggregated by symbol + date:
 
 ```typescript
-interface ValidationResult {
-  isValid: boolean;
-  discrepancies: PnlDiscrepancy[];
-  totalCalculated: Decimal;
-  totalReported: Decimal;
-}
-
-interface PnlDiscrepancy {
+interface TradeConfirmationSummary {
+  tradeDate: string;
   symbol: string;
   subtype: "YES" | "NO";
-  calculatedPnl: Decimal;
-  reportedPnl: Decimal;
-  delta: Decimal;
-}
-
-const PNL_TOLERANCE = new Decimal("0.01"); // ±$0.01 per position
-
-function validatePnlAgainstStatement(
-  calculatedPositions: Map<string, CalculatedPnl>,
-  section5Summary: PurchaseSaleSummaryRow[]
-): ValidationResult {
-  const discrepancies: PnlDiscrepancy[] = [];
-  let totalCalculated = new Decimal(0);
-  let totalReported = new Decimal(0);
-  
-  // Group Section 5 by symbol for easier lookup
-  const reportedBySymbol = groupBy(section5Summary, row => row.symbol);
-  
-  for (const [key, calculated] of calculatedPositions) {
-    const [symbol, subtype] = key.split("_");
-    
-    // Find matching Section 5 row
-    const reportedRows = reportedBySymbol.get(symbol) ?? [];
-    const matchingRow = reportedRows.find(r => r.subtype === subtype);
-    
-    if (!matchingRow) {
-      // Position not in Section 5 - might be open or error
-      continue;
-    }
-    
-    const reportedPnl = matchingRow.grossPnl;
-    const delta = calculated.grossPnl.minus(reportedPnl).abs();
-    
-    totalCalculated = totalCalculated.plus(calculated.grossPnl);
-    totalReported = totalReported.plus(reportedPnl);
-    
-    if (delta.gt(PNL_TOLERANCE)) {
-      discrepancies.push({
-        symbol,
-        subtype: subtype as "YES" | "NO",
-        calculatedPnl: calculated.grossPnl,
-        reportedPnl,
-        delta,
-      });
-    }
-  }
-  
-  return {
-    isValid: discrepancies.length === 0,
-    discrepancies,
-    totalCalculated,
-    totalReported,
-  };
+  totalQty: number;
+  commissions: number;
+  exchangeFees: number;
+  nfaFees: number;
+  totalFees: number;
 }
 ```
 
-### 9.3 Handling Two-Sided Positions
+### 10.2 Attribution Strategy
 
-The same event can have both YES and NO activity (hedging or early exit).
+Fees are distributed proportionally by quantity:
 
 ```typescript
-// Example: Georgia vs Tennessee game
-// Symbol: KXNCAAFGAME-25SEP13UGATENN-TENN (Tennessee)
-// Symbol: KXNCAAFGAME-25SEP13UGATENN-UGA (Georgia)
-// 
-// These are DIFFERENT contracts but SAME event.
-// Only one can settle at $1.00.
+function attributeFees(
+  trades: TradeEntry[],
+  summaries: TradeConfirmationSummary[]
+): FeeAttributionResult {
+  // Group trades and summaries by symbol + date + side
+  const tradeGroups = new Map<string, TradeEntry[]>();
+  const summaryGroups = new Map<string, TradeConfirmationSummary[]>();
 
-function isRelatedContract(symbol1: string, symbol2: string): boolean {
-  // Extract base event from symbol
-  // KXNCAAFGAME-25SEP13UGATENN-TENN -> KXNCAAFGAME-25SEP13UGATENN
-  // KXNCAAFGAME-25SEP13UGATENN-UGA  -> KXNCAAFGAME-25SEP13UGATENN
-  
-  const base1 = symbol1.substring(0, symbol1.lastIndexOf("-"));
-  const base2 = symbol2.substring(0, symbol2.lastIndexOf("-"));
-  
-  return base1 === base2;
-}
+  // For each summary group, distribute fees to matching trades
+  for (const [key, groupSummaries] of summaryGroups) {
+    const matchingTrades = tradeGroups.get(key) ?? [];
+    const totalQuantity = matchingTrades.reduce((sum, t) => sum + t.quantity, 0);
+    const totalFees = groupSummaries.reduce((sum, s) => sum + s.totalFees, 0);
 
-function calculateEventNetPnl(
-  positions: Position[],
-  eventBaseSymbol: string
-): Decimal {
-  // Sum P&L across all related contracts for the same event
-  return positions
-    .filter(p => p.symbol.startsWith(eventBaseSymbol))
-    .reduce((sum, p) => sum.plus(calculatePositionPnl(p).grossPnl), new Decimal(0));
+    for (const trade of matchingTrades) {
+      trade.fees = totalFees * (trade.quantity / totalQuantity);
+    }
+  }
 }
 ```
 
 ---
 
-## 10. Symbol Parsing & Categorization
+## 11. Symbol Parsing & Categorization
 
-### 10.1 Symbol Structure
+### 11.1 Symbol Structure
 
 ```
 KX[SPORT/EVENT][DETAILS]-[YYMONDD][MATCHUP]-[OUTCOME]
@@ -820,244 +598,106 @@ Examples:
 - `KXFEDDECISION-25SEP-C25` → Fed decision, Sep 2025, Cut 25bps
 - `KXUSOMENSINGLES-25-JS` → US Open Men's Singles 2025, Jannik Sinner
 
-### 10.2 Category Patterns
+### 11.2 Category Patterns
 
 ```typescript
 const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: string }> = [
   // Sports - Football
   { pattern: /^KXNFLGAME/i, category: "NFL" },
   { pattern: /^KXNCAAFGAME/i, category: "College Football" },
-  
+
   // Sports - Other
   { pattern: /^KXNBAGAME/i, category: "NBA" },
   { pattern: /^KXMLB/i, category: "MLB" },
   { pattern: /^KXEPL/i, category: "Soccer" },
   { pattern: /^KXPGA/i, category: "Golf" },
   { pattern: /^KXUSO(MEN|WOMEN)/i, category: "Tennis" },
-  
+
   // Economics
   { pattern: /^KXFEDDECISION/i, category: "Fed Decision" },
   { pattern: /^KXCPI/i, category: "CPI" },
   { pattern: /^KXGDP/i, category: "GDP" },
   { pattern: /^KXJOBLESS/i, category: "Jobs" },
-  
+
   // Crypto
   { pattern: /^KXBTC/i, category: "Bitcoin" },
   { pattern: /^KXETH/i, category: "Ethereum" },
-  
+
   // Politics
   { pattern: /^KXELECTION/i, category: "Elections" },
   { pattern: /^KXPRESIDENT/i, category: "Presidential" },
 ];
-
-function categorizeSymbol(symbol: string): string {
-  for (const { pattern, category } of CATEGORY_PATTERNS) {
-    if (pattern.test(symbol)) {
-      return category;
-    }
-  }
-  return "Uncategorized";
-}
-```
-
-### 10.3 Event Date Extraction
-
-```typescript
-function extractEventDate(symbol: string): Date | null {
-  // Pattern: YYMONDD embedded in symbol
-  // Example: 25SEP04 = September 4, 2025
-  
-  const datePattern = /(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})/i;
-  const match = symbol.match(datePattern);
-  
-  if (!match) return null;
-  
-  const [, year, month, day] = match;
-  const monthMap: Record<string, number> = {
-    JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
-    JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11,
-  };
-  
-  return new Date(
-    2000 + parseInt(year),
-    monthMap[month.toUpperCase()],
-    parseInt(day)
-  );
-}
 ```
 
 ---
 
-## 11. Full Import Pipeline
+## 12. Import Pipeline
 
-### 11.1 Pipeline Overview
+### 12.1 Pipeline Overview
 
 ```typescript
 async function importStatement(pdfFile: File): Promise<ImportResult> {
-  // Phase 1: Extract
-  const document = await loadPDF(pdfFile);
-  const textItems = await extractTextWithPositions(document);
-  
-  // Phase 2: Detect & Segment
-  const boundaries = detectSectionBoundaries(textItems);
+  // Phase 1: Extract PDF text with positions
+  const document = await loadPDFFromFile(pdfFile);
+
+  // Phase 2: Detect section boundaries
+  const boundaries = detectSectionBoundaries(document);
   validateRequiredSections(boundaries);
-  
-  // Phase 3: Parse Each Section
-  const section2 = parseSection2(textItems, boundaries.find(b => b.id === "section2")!);
-  const section4 = parseSection4(textItems, boundaries.find(b => b.id === "section4")!);
-  const section5 = parseSection5(textItems, boundaries.find(b => b.id === "section5")!);
-  const section6 = parseSection6(textItems, boundaries.find(b => b.id === "section6")!);
-  const section7 = parseSection7(textItems, boundaries.find(b => b.id === "section7"));
-  const section10 = parseSection10(textItems, boundaries.find(b => b.id === "section10")!);
-  
-  // Phase 4: Build Position Ledger
-  const ledger = buildPositionLedger(section2, section4, section5);
-  
-  // Phase 5: Calculate P&L
-  const calculatedPnl = new Map<string, CalculatedPnl>();
-  for (const [key, position] of ledger.positions) {
-    calculatedPnl.set(key, calculatePositionPnl(position));
+
+  // Phase 3: Parse each section
+  const section2 = parseSection2(getSection(boundaries, "section2"), pageWidth);
+  const section3 = parseSection3(getSection(boundaries, "section3"), pageWidth);
+  const section4 = parseSection4(getSection(boundaries, "section4"), pageWidth);
+  const section5 = parseSection5(getSection(boundaries, "section5"), pageWidth);
+  const section6 = parseSection6(getSection(boundaries, "section6"), pageWidth);
+  const section7 = parseSection7(getSection(boundaries, "section7"), pageWidth);
+  const section10 = parseSection10(getSection(boundaries, "section10"), pageWidth);
+
+  // Phase 4: Merge trades with deduplication
+  const mergedTrades = mergeTradesWithDeduplication(section2.trades, section4.trades);
+
+  // Phase 5: Convert to FIFO entries (with sell-as-buy-opposite logic)
+  const tradeEntries = convertAllTradesToEntries(mergedTrades.mergedTrades);
+
+  // Phase 6: Attribute fees from Section 3
+  const feeAttribution = attributeFees(tradeEntries, section3.summaries);
+
+  // Phase 7: Calculate FIFO P&L
+  const fifoResults = calculateAllPositions(feeAttribution.trades);
+
+  // Phase 8: Validate against Section 5
+  const pnlValidation = validatePnlAgainstSection5(fifoResults, section5.pairedPositions);
+
+  // Phase 9: Check if import should be blocked
+  if (shouldBlockImport(pnlValidation, strictMode)) {
+    throw new Error("P&L validation failed");
   }
-  
-  // Phase 6: Validate Against Statement
-  const validation = validatePnlAgainstStatement(calculatedPnl, section5);
-  
-  if (!validation.isValid) {
-    // Log discrepancies but use statement figures as source of truth
-    console.warn("P&L discrepancies found:", validation.discrepancies);
-  }
-  
-  // Phase 7: Transform to Database DTOs
-  const importDto = transformToImportDto({
-    section2,
-    section4,
-    section5,
-    section6,
-    section7,
-    section10,
-    calculatedPnl,
-    validation,
-  });
-  
-  // Phase 8: Persist (all-or-nothing transaction)
-  await persistImport(importDto);
-  
-  return {
-    success: true,
-    tradesImported: importDto.trades.length,
-    closedPositions: importDto.closedPositions.length,
-    openPositions: importDto.openPositions.length,
-    netLiquidity: section10.netLiquidity,
-    validationWarnings: validation.discrepancies,
-  };
+
+  // Phase 10: Persist to database
+  await persistImport(parsedData);
+
+  return { success: true, ... };
 }
 ```
 
-### 11.2 Error Handling Strategy
+### 12.2 Error Handling
+
+All parsing errors reject the entire import (no partial imports):
 
 ```typescript
-interface ParseError {
-  phase: "extract" | "segment" | "parse" | "calculate" | "validate" | "persist";
-  section?: string;
-  message: string;
-  recoverable: boolean;
-  context?: Record<string, unknown>;
-}
-
-function handleParseError(error: ParseError): never {
-  // All errors reject the entire import (no partial imports)
-  throw new ImportFailedError({
-    message: `Import failed at ${error.phase}` + 
-             (error.section ? ` (${error.section})` : "") +
-             `: ${error.message}`,
-    phase: error.phase,
-    section: error.section,
-    context: error.context,
-  });
-}
-```
-
----
-
-## 12. Output DTOs (Database Mapping)
-
-### 12.1 Statement Import DTO
-
-Maps to `statement_imports` table:
-
-```typescript
-interface StatementImportDto {
-  id: string;                    // Generated UUID
-  platform: "robinhood";
-  accountNumber: string;         // From header
-  statementDate: Date;           // From header
-  statementPeriodStart: Date;
-  statementPeriodEnd: Date;
-  parserVersion: string;         // e.g., "v1.0"
-  importTimestamp: Date;
-  pdfStoredUntil: Date;          // 12 months from import
-  netLiquidity: Decimal;         // From Section 10
-  totalFees: Decimal;            // From Section 10
-  endingCash: Decimal;           // From Section 10
-}
-```
-
-### 12.2 Trade DTO
-
-Maps to `trades` table:
-
-```typescript
-interface TradeDto {
-  id: string;
-  importId: string;
-  platform: "robinhood";
-  accountId: string;
-  
-  tradeDate: Date;
-  symbol: string;
-  side: "YES" | "NO";
-  quantity: number;
-  price: Decimal;
-  fees: Decimal;
-  
-  tradeType: "OPEN" | "CLOSE" | "ADJUST";
-  category: string;              // Auto-categorized
-  
-  settlementDate: Date | null;
-  settlementPrice: Decimal | null;
-  
-  platformMetadata: {
-    exchange: string;
-    contractYear: number;
-    description: string;
-    originalTradeType: string;   // "Trade" | "Final Settlement"
-  };
-}
-```
-
-### 12.3 Closed Position DTO
-
-Maps to `closed_positions` table:
-
-```typescript
-interface ClosedPositionDto {
-  id: string;
-  importId: string;
-  platform: "robinhood";
-  
-  symbol: string;
-  entryDate: Date;
-  exitDate: Date;
-  entryPrice: Decimal;           // VWAP of entries
-  exitPrice: Decimal;            // Settlement or exit price
-  quantity: number;
-  
-  grossPnl: Decimal;             // From Section 5 (source of truth)
-  fees: Decimal;
-  netPnl: Decimal;               // grossPnl - fees
-  
-  calculatedPnl: Decimal;        // Our FIFO calculation
-  pnlDiscrepancy: Decimal;       // grossPnl - calculatedPnl
+interface ImportResult {
+  success: boolean;
+  importId?: string;
+  tradesImported: number;
+  closedPositionsImported: number;
+  openPositionsImported: number;
+  cashFlowsImported: number;
+  netLiquidity: number;
+  totalFees: number;
+  validationWarnings: string[];
+  parsingWarnings: string[];
+  error?: string;
+  duplicateImport?: { existingId: string; existingDate: string };
 }
 ```
 
@@ -1067,22 +707,22 @@ interface ClosedPositionDto {
 
 ### 13.1 Post-Extraction
 
-- [ ] All required sections detected
+- [ ] All required sections detected (1, 2, 4, 5, 6, 10)
 - [ ] Text items have valid coordinates
-- [ ] Page count matches expected range
+- [ ] Page count within expected range
 
 ### 13.2 Post-Parsing
 
-- [ ] All prices are in valid range (0.00 ≤ p ≤ 1.00)
+- [ ] All prices in valid range (0.00 ≤ p ≤ 1.00)
 - [ ] All quantities are positive integers
-- [ ] All dates are valid and within statement period (or recent past)
+- [ ] All dates are valid and within statement period
 - [ ] All symbols match expected pattern
 
 ### 13.3 Post-Calculation
 
-- [ ] Sum of calculated P&L matches Section 10 gross P&L (within tolerance)
-- [ ] Total quantity settled matches total quantity traded per symbol
-- [ ] Fees sum matches Section 10 total fees
+- [ ] P&L discrepancy within tolerance (adjusted for known issues)
+- [ ] Fee attribution matches Section 10 total (within $1.00)
+- [ ] Total quantity settled matches total quantity traded
 
 ### 13.4 Pre-Persist
 
@@ -1094,17 +734,18 @@ interface ClosedPositionDto {
 
 ## Appendix A: Scientific Notation Handling
 
-The PDF may contain prices in scientific notation (e.g., `0E-8` for zero).
+The PDF may contain prices in scientific notation (e.g., `0E-8` for zero):
 
 ```typescript
-function parsePrice(value: string): Decimal {
+function parseTradePrice(value: string): number | null {
   // Handle scientific notation
   if (/^[\d.]+E[+-]?\d+$/i.test(value)) {
-    return new Decimal(value);
+    return parseFloat(value);
   }
-  
+
   // Handle standard decimal
-  return new Decimal(value.replace(/[^0-9.-]/g, ""));
+  const cleaned = value.replace(/[^0-9.-]/g, "");
+  return cleaned ? parseFloat(cleaned) : null;
 }
 ```
 
@@ -1112,55 +753,33 @@ function parsePrice(value: string): Decimal {
 
 ## Appendix B: Multi-Page Table Handling
 
-Tables can span multiple pages with repeated headers.
+Tables can span multiple pages with repeated headers:
 
 ```typescript
-function isRepeatedHeader(
-  item: TextItem,
-  originalHeaderY: number,
-  currentPage: number,
-  headerPage: number
-): boolean {
-  // Header is repeated if:
-  // 1. We're on a different page
-  // 2. Text matches a known column header
-  // 3. Y-position is near top of page
-  
-  const isNewPage = currentPage !== headerPage;
-  const isNearTop = item.y < 100; // Adjust based on PDF layout
-  const isHeaderText = COLUMN_HEADERS.includes(item.text.trim());
-  
-  return isNewPage && isNearTop && isHeaderText;
+function isRepeatedHeader(rowText: string, expectedColumns: ColumnConfig[]): boolean {
+  const keywords = expectedColumns.map(c => c.keywords).flat();
+  const matchCount = keywords.filter(kw =>
+    rowText.toLowerCase().includes(kw.toLowerCase())
+  ).length;
+  return matchCount >= 3; // At least 3 header keywords found
 }
 ```
 
 ---
 
-## Appendix C: Fee Attribution
+## Appendix C: Debugging Tools
 
-Fees from Section 3 (Trade Confirmation Summary) need to be attributed to individual trades.
+The parser includes extensive debug logging controlled by `verbose` flag:
 
 ```typescript
-function attributeFees(
-  trades: TradeDto[],
-  summaryRows: TradeConfirmationSummaryRow[]
-): void {
-  // Group trades by symbol + date for matching
-  const tradeGroups = groupBy(trades, t => `${t.symbol}_${t.tradeDate}`);
-  
-  for (const summary of summaryRows) {
-    const key = `${summary.symbol}_${summary.tradeDate}`;
-    const matchingTrades = tradeGroups.get(key) ?? [];
-    
-    if (matchingTrades.length === 0) continue;
-    
-    // Distribute fees proportionally by quantity
-    const totalQty = matchingTrades.reduce((sum, t) => sum + t.quantity, 0);
-    const totalFees = summary.totalCommissionsAndFees;
-    
-    for (const trade of matchingTrades) {
-      trade.fees = totalFees.times(trade.quantity).div(totalQty);
-    }
-  }
-}
+const parsedData = await parseDocument(document, true /* verbose */);
+
+// Outputs:
+// [Import] Detected sections: section1, section2, section3, ...
+// [Import] Section 2: 147 trades
+// [Round-Trip] KXNFLGAME-...: YES qty=100, NO qty=100 → treating as YES open+close
+// [Sell-as-Buy] KXNFLGAME-...: NO @ $0.70 → CLOSE YES @ $0.30
+// [Import] FIFO calculated: Gross 123.45, Net 120.00
+// === P&L COMPARISON ===
+// KXNFLGAME-...: Reported 27.80, Calculated 27.80, Δ 0.00
 ```

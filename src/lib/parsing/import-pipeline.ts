@@ -394,53 +394,11 @@ export async function parseDocument(
     );
   }
 
-  // Debug: Log raw trades before conversion
+  // Debug: Log trade summary
   if (verbose) {
-    console.log("=== RAW MERGED TRADES ===");
-    console.log(`Total: ${mergedTrades.mergedTrades.length}`);
     const settlements = mergedTrades.mergedTrades.filter(t => t.tradeType === "Final Settlement");
     const regularTrades = mergedTrades.mergedTrades.filter(t => t.tradeType !== "Final Settlement");
-    console.log(`Settlements: ${settlements.length}, Regular trades: ${regularTrades.length}`);
-
-    // Break down by source and trade type
-    const s2Settlements = (section2Result?.trades ?? []).filter(t => t.tradeType === "Final Settlement");
-    const s4Settlements = (section4Result?.trades ?? []).filter(t => t.tradeType === "Final Settlement");
-    console.log(`Section 2 settlements: ${s2Settlements.length}, Section 4 settlements: ${s4Settlements.length}`);
-
-    // Group trades by symbol to understand position structure
-    const bySymbol = new Map<string, typeof mergedTrades.mergedTrades>();
-    for (const t of mergedTrades.mergedTrades) {
-      const existing = bySymbol.get(t.symbol) ?? [];
-      existing.push(t);
-      bySymbol.set(t.symbol, existing);
-    }
-
-    // Create set of symbols that have settlements
-    const settlementSymbols = new Set(settlements.map(s => s.symbol));
-    console.log(`\n=== SETTLEMENT COVERAGE ===`);
-    console.log(`Symbols with settlements: ${settlementSymbols.size}`);
-
-    // Log symbols that have trades but NO settlements (potential issues)
-    const symbolsWithoutSettlements = [...bySymbol.keys()].filter(s => !settlementSymbols.has(s));
-    if (symbolsWithoutSettlements.length > 0) {
-      console.log(`⚠️ Symbols with trades but NO settlement: ${symbolsWithoutSettlements.length}`);
-      symbolsWithoutSettlements.forEach(s => {
-        const trades = bySymbol.get(s) ?? [];
-        const sides = [...new Set(trades.map(t => t.subtype))].join(',');
-        console.log(`  - ${s} (${sides})`);
-      });
-    }
-
-    // Log first 3 symbols with all their trades
-    console.log("=== TRADES BY SYMBOL (first 3) ===");
-    let count = 0;
-    for (const [symbol, trades] of bySymbol) {
-      if (count++ >= 3) break;
-      console.log(`\n${symbol}:`);
-      for (const t of trades) {
-        console.log(`  - [${t.source}] ${t.tradeType}: ${t.subtype} qty=${t.qtyLong || t.qtyShort} @ ${t.tradePrice}`);
-      }
-    }
+    console.log(`[Import] Merged trades: ${regularTrades.length} regular, ${settlements.length} settlements`);
   }
 
   // Parse Section 5 (Purchase and Sale Summary - source of truth)
@@ -471,9 +429,6 @@ export async function parseDocument(
 
   // Parse Section 7 (Open Positions - optional)
   const section7Boundary = getSection(boundaries, "section7");
-  if (verbose) {
-    console.log(`[Import] Section 7 boundary: ${section7Boundary ? `found (${section7Boundary.items.length} items)` : "NOT FOUND"}`);
-  }
   const section7Result: Section7ParseResult | null = section7Boundary
     ? parseSection7(section7Boundary, pageWidth)
     : null;
@@ -482,9 +437,6 @@ export async function parseDocument(
     warnings.push(...section7Result.warnings);
     if (verbose) {
       console.log(`[Import] Section 7: ${section7Result.validPositions} open positions`);
-      if (section7Result.warnings.length > 0) {
-        console.log(`[Import] Section 7 warnings:`, section7Result.warnings);
-      }
     }
   }
 
@@ -513,62 +465,11 @@ export async function parseDocument(
   // - YES Trade → OPEN YES
   // - NO Trade → CLOSE YES (since sell YES = buy NO in statement format)
 
-  // Debug: Log trade entries for analysis
+  // Debug: Log trade entry summary
   if (verbose) {
-    console.log("=== TRADE ENTRIES FOR FIFO ===");
-    console.log(`Total entries: ${tradeEntries.length} (from ${mergedTrades.mergedTrades.length} raw trades)`);
     const byType = { OPEN: 0, CLOSE: 0, SETTLE: 0 };
-    const bySide = { YES: 0, NO: 0 };
-    for (const entry of tradeEntries) {
-      byType[entry.type]++;
-      bySide[entry.side]++;
-    }
-    console.log("By type:", byType);
-    console.log("By side:", bySide);
-
-    // Check for sells (qtyShort > 0) in raw trades
-    const sells = mergedTrades.mergedTrades.filter(t => t.qtyShort > 0 && t.tradeType !== "Final Settlement");
-    if (sells.length > 0) {
-      console.log(`\n⚠️ Sell trades found: ${sells.length}`);
-      sells.slice(0, 5).forEach(s => {
-        console.log(`  - ${s.symbol.substring(0, 30)}: ${s.subtype} qtyShort=${s.qtyShort} @ ${s.tradePrice}`);
-      });
-    } else {
-      console.log(`\nℹ️ No sell trades (qtyShort > 0) found in regular trades`);
-    }
-
-    // Check for matching opens and settlements
-    const openKeys = new Set(tradeEntries.filter(t => t.type === "OPEN").map(t => `${t.symbol}|${t.side}`));
-    const settleKeys = new Set(tradeEntries.filter(t => t.type === "SETTLE").map(t => `${t.symbol}|${t.side}`));
-
-    const unmatchedSettlements = [...settleKeys].filter(k => !openKeys.has(k));
-    const unmatchedOpens = [...openKeys].filter(k => !settleKeys.has(k));
-
-    if (unmatchedSettlements.length > 0) {
-      console.log(`⚠️ Settlements without matching opens: ${unmatchedSettlements.length}`);
-      unmatchedSettlements.slice(0, 5).forEach(k => console.log(`  - ${k}`));
-    }
-    if (unmatchedOpens.length > 0) {
-      console.log(`ℹ️ Opens without settlements (may be open positions): ${unmatchedOpens.length}`);
-    }
-
-    // Log first few settlements to verify conversion
-    const settlements = tradeEntries.filter(t => t.type === "SETTLE").slice(0, 5);
-    console.log("Sample settlements:", settlements.map(s => ({
-      symbol: s.symbol.substring(0, 30),
-      side: s.side,
-      price: s.price,
-      qty: s.quantity,
-    })));
-
-    // Log first few opens to verify
-    const opens = tradeEntries.filter(t => t.type === "OPEN").slice(0, 5);
-    console.log("Sample opens:", opens.map(o => ({
-      symbol: o.symbol.substring(0, 30),
-      side: o.side,
-      price: o.price,
-      qty: o.quantity,
-    })));
+    for (const entry of tradeEntries) byType[entry.type]++;
+    console.log(`[Import] Trade entries: ${tradeEntries.length} (OPEN: ${byType.OPEN}, CLOSE: ${byType.CLOSE}, SETTLE: ${byType.SETTLE})`);
   }
 
   // Attribute fees from Section 3
@@ -582,26 +483,18 @@ export async function parseDocument(
   }
 
   // Validate Section 3 fees against Section 10 total (if available)
-  if (verbose || section10Result?.summary?.totalCommissionsAndFees) {
-    const section3TotalFees = feeAttribution.totalFeesAvailable;
-    const section10TotalFees = section10Result?.summary?.totalCommissionsAndFees ?? 0;
+  const section3TotalFees = feeAttribution.totalFeesAvailable;
+  const section10TotalFees = section10Result?.summary?.totalCommissionsAndFees ?? 0;
 
-    console.log("=== FEE VALIDATION ===");
-    console.log(`Section 3 total fees: $${section3TotalFees.toFixed(2)}`);
-    console.log(`Section 10 total fees: $${section10TotalFees.toFixed(2)}`);
-    console.log(`Fees attributed to trades: $${feeAttribution.totalFeesAttributed.toFixed(2)}`);
+  if (verbose) {
+    console.log(`[Import] Fees: S3=$${section3TotalFees.toFixed(2)}, S10=$${section10TotalFees.toFixed(2)}, attributed=$${feeAttribution.totalFeesAttributed.toFixed(2)}`);
+  }
 
-    if (Math.abs(section3TotalFees - section10TotalFees) > 1.0) {
-      const discrepancy = Math.abs(section3TotalFees - section10TotalFees);
-      warnings.push(
-        `Fee parsing discrepancy: Section 3 shows $${section3TotalFees.toFixed(2)} but Section 10 shows $${section10TotalFees.toFixed(2)} (Δ$${discrepancy.toFixed(2)})`
-      );
-      console.log(`⚠️ SIGNIFICANT FEE DISCREPANCY: Section 3 parsing may be failing`);
-      console.log(`  Section 3 summaries parsed: ${section3Result?.summaries?.length ?? 0}`);
-      if (section3Result?.layout) {
-        console.log(`  Section 3 column layout detected: ${section3Result.layout.columns.map(c => c.name).join(", ")}`);
-      }
-    }
+  if (Math.abs(section3TotalFees - section10TotalFees) > 1.0) {
+    const discrepancy = Math.abs(section3TotalFees - section10TotalFees);
+    warnings.push(
+      `Fee parsing discrepancy: Section 3 shows $${section3TotalFees.toFixed(2)} but Section 10 shows $${section10TotalFees.toFixed(2)} (Δ$${discrepancy.toFixed(2)})`
+    );
   }
 
   // Calculate P&L using FIFO
@@ -609,23 +502,7 @@ export async function parseDocument(
 
   if (verbose) {
     const totals = getTotalPnl(fifoResults);
-    console.log(`[Import] FIFO calculated: Gross ${totals.grossPnl.toFixed(2)}, Net ${totals.netPnl.toFixed(2)}`);
-
-    // Log FIFO results by symbol
-    console.log("=== FIFO RESULTS ===");
-    console.log(`Total position groups: ${fifoResults.size}`);
-    for (const [key, result] of fifoResults) {
-      if (result.totalGrossPnl !== 0 || result.closedLots.length > 0 || result.openLots.length > 0) {
-        console.log(`${key}: closed=${result.closedLots.length} lots, open=${result.openLots.length} lots, pnl=${result.totalGrossPnl.toFixed(2)}`);
-      }
-    }
-
-    // Log positions with 0 closed lots but non-zero trades
-    const emptyResults = Array.from(fifoResults.entries())
-      .filter(([, r]) => r.closedLots.length === 0 && r.openLots.length === 0);
-    if (emptyResults.length > 0) {
-      console.log(`FIFO results with no activity: ${emptyResults.length}`);
-    }
+    console.log(`[Import] FIFO: ${fifoResults.size} positions, gross=$${totals.grossPnl.toFixed(2)}, net=$${totals.netPnl.toFixed(2)}`);
   }
 
   // Validate against Section 5
@@ -634,68 +511,12 @@ export async function parseDocument(
     section5Result?.pairedPositions ?? []
   );
 
-  // Check which Section 5 positions have no matching settlements
-  if (verbose && section5Result?.pairedPositions) {
-    const settlementSymbols = new Set(
-      tradeEntries.filter(t => t.type === "SETTLE").map(t => t.symbol)
-    );
-    const s5WithoutSettlement = section5Result.pairedPositions.filter(
-      p => !settlementSymbols.has(p.symbol)
-    );
-    if (s5WithoutSettlement.length > 0) {
-      console.log(`\n=== SECTION 5 POSITIONS WITHOUT SETTLEMENTS ===`);
-      console.log(`${s5WithoutSettlement.length} positions in Section 5 have no settlement record:`);
-      s5WithoutSettlement.forEach(p => {
-        const yesInfo = p.yesRow ? `YES: ${p.yesRow.grossPnl?.toFixed(2)}` : '';
-        const noInfo = p.noRow ? `NO: ${p.noRow.grossPnl?.toFixed(2)}` : '';
-        console.log(`  - ${p.symbol}: ${yesInfo} ${noInfo} (net: ${p.netPnl.toFixed(2)})`);
-      });
-    }
-  }
-
-  if (!pnlValidation.isValid && verbose) {
+  if (verbose && !pnlValidation.isValid) {
     console.log(`[Import] P&L validation: ${pnlValidation.failures.length} discrepancies`);
-
-    // Log detailed comparison for ALL failures (to debug both-sided issues)
-    console.log("=== P&L COMPARISON (all failures) ===");
-    for (const failure of pnlValidation.failures) {
-      console.log(`\n${failure.symbol}:`);
-      console.log(`  Reported (Section 5): ${failure.reportedPnl.toFixed(2)}`);
-      console.log(`  Calculated (FIFO): ${failure.calculatedPnl.toFixed(2)}`);
-      console.log(`  Discrepancy: ${failure.discrepancy.toFixed(2)}`);
-
-      // Find Section 5 details
-      const s5Position = section5Result?.pairedPositions?.find(p => p.symbol === failure.symbol);
-      if (s5Position) {
-        const yesQty = (s5Position.yesRow?.totalQtyLong ?? 0) + (s5Position.yesRow?.totalQtyShort ?? 0);
-        const noQty = (s5Position.noRow?.totalQtyLong ?? 0) + (s5Position.noRow?.totalQtyShort ?? 0);
-        console.log(`  Section 5 YES: qty=${yesQty}, pnl=${s5Position.yesRow?.grossPnl?.toFixed(2) ?? 'N/A'}`);
-        console.log(`  Section 5 NO: qty=${noQty}, pnl=${s5Position.noRow?.grossPnl?.toFixed(2) ?? 'N/A'}`);
-        console.log(`  Both-sided: ${s5Position.yesRow !== null && s5Position.noRow !== null}`);
-      }
-
-      // Find FIFO results for this symbol
-      const fifoYes = fifoResults.get(`${failure.symbol}|YES`);
-      const fifoNo = fifoResults.get(`${failure.symbol}|NO`);
-      console.log(`  FIFO YES: pnl=${fifoYes?.totalGrossPnl?.toFixed(2) ?? '0.00'}, closed=${fifoYes?.closedLots?.length ?? 0}, open=${fifoYes?.openLots?.length ?? 0}`);
-      console.log(`  FIFO NO: pnl=${fifoNo?.totalGrossPnl?.toFixed(2) ?? '0.00'}, closed=${fifoNo?.closedLots?.length ?? 0}, open=${fifoNo?.openLots?.length ?? 0}`);
-
-      // Find raw trades for this symbol
-      const symbolTrades = mergedTrades.mergedTrades.filter(t => t.symbol === failure.symbol);
-      const opens = symbolTrades.filter(t => t.tradeType !== "Final Settlement");
-      const settlements = symbolTrades.filter(t => t.tradeType === "Final Settlement");
-      console.log(`  Raw trades: ${opens.length} opens, ${settlements.length} settlements`);
-      if (settlements.length > 0) {
-        settlements.forEach(s => {
-          console.log(`    Settlement: ${s.subtype} @ ${s.tradePrice?.toFixed(2)} qty=${s.qtyLong || s.qtyShort}`);
-        });
-      }
-      if (opens.length > 0) {
-        opens.forEach(o => {
-          console.log(`    Open: ${o.subtype} @ ${o.tradePrice?.toFixed(2)} qty=${o.qtyLong || o.qtyShort}`);
-        });
-      }
-    }
+    // Log top 3 discrepancies for debugging
+    pnlValidation.failures.slice(0, 3).forEach(f => {
+      console.log(`  ${f.symbol.substring(0, 40)}: calc=$${f.calculatedPnl.toFixed(2)} vs reported=$${f.reportedPnl.toFixed(2)} (Δ$${f.discrepancy.toFixed(2)})`);
+    });
   }
 
   return {
@@ -877,16 +698,233 @@ async function persistImport(
 // HELPERS
 // ============================================================================
 
+/** Context passed between trade conversion functions */
+interface TradeConversionContext {
+  existingSettlements: Set<string>;
+  settlementsBySymbol: Map<string, { side: string; price: number; date: string; quantity: number }>;
+  allSymbols: Set<string>;
+  generatedSyntheticSettlements: Set<string>;
+}
+
+/** Get trade quantity from either qtyLong or qtyShort */
+function getTradeQuantity(trade: TradeConfirmation | PurchaseSaleTrade): number {
+  return trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
+}
+
+/** Create a TradeEntry from common parameters */
+function createEntry(
+  date: string,
+  symbol: string,
+  side: "YES" | "NO",
+  quantity: number,
+  price: number,
+  type: "OPEN" | "CLOSE" | "SETTLE",
+  settlementPrice?: number
+): TradeEntry {
+  return {
+    date,
+    symbol,
+    side,
+    quantity,
+    price,
+    type,
+    ...(settlementPrice !== undefined && { settlementPrice }),
+    fees: 0,
+  };
+}
+
 /**
- * Convert all trades to TradeEntry format for FIFO calculation
+ * Process round-trip trades (buy YES then sell YES).
+ * YES trades become OPENS, NO trades become CLOSES of YES (sell-as-buy-opposite).
+ */
+function processRoundTripTrades(
+  yesTrades: (TradeConfirmation | PurchaseSaleTrade)[],
+  noTrades: (TradeConfirmation | PurchaseSaleTrade)[]
+): TradeEntry[] {
+  const entries: TradeEntry[] = [];
+
+  // YES trades are OPENS
+  for (const trade of yesTrades) {
+    entries.push(createEntry(
+      trade.tradeDate,
+      trade.symbol,
+      "YES",
+      getTradeQuantity(trade),
+      trade.tradePrice ?? 0,
+      "OPEN"
+    ));
+  }
+
+  // NO trades are CLOSES of YES (sell YES = buy NO)
+  // Close price = 1 - NO_price (the actual sell price)
+  for (const trade of noTrades) {
+    const closePrice = 1 - (trade.tradePrice ?? 0);
+    entries.push(createEntry(
+      trade.tradeDate,
+      trade.symbol,
+      "YES",
+      getTradeQuantity(trade),
+      closePrice,
+      "CLOSE"
+    ));
+  }
+
+  return entries;
+}
+
+/**
+ * Process mixed-scenario trades (partial closes or genuine both-sided position).
+ * Uses FIFO matching in chronological order.
+ */
+function processMixedTrades(
+  symbolTrades: (TradeConfirmation | PurchaseSaleTrade)[]
+): TradeEntry[] {
+  const entries: TradeEntry[] = [];
+
+  // Sort all trades by date
+  const sortedTrades = [...symbolTrades].sort((a, b) =>
+    new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime()
+  );
+
+  // Track open positions to determine if trades are opens or closes
+  let openYes = 0;
+  let openNo = 0;
+
+  for (const trade of sortedTrades) {
+    const quantity = getTradeQuantity(trade);
+    const side = trade.subtype;
+    const price = trade.tradePrice ?? 0;
+
+    if (side === "YES") {
+      if (openNo > 0) {
+        // This YES trade might be closing a NO position (sell NO = buy YES)
+        const closeQty = Math.min(quantity, openNo);
+        const closePrice = 1 - price;
+        if (closeQty > 0) {
+          entries.push(createEntry(trade.tradeDate, trade.symbol, "NO", closeQty, closePrice, "CLOSE"));
+          openNo -= closeQty;
+        }
+        // Remaining quantity opens new YES position
+        const openQty = quantity - closeQty;
+        if (openQty > 0) {
+          entries.push(createEntry(trade.tradeDate, trade.symbol, "YES", openQty, price, "OPEN"));
+          openYes += openQty;
+        }
+      } else {
+        entries.push(createEntry(trade.tradeDate, trade.symbol, "YES", quantity, price, "OPEN"));
+        openYes += quantity;
+      }
+    } else {
+      // NO trade
+      if (openYes > 0) {
+        // This NO trade might be closing a YES position (sell YES = buy NO)
+        const closeQty = Math.min(quantity, openYes);
+        const closePrice = 1 - price;
+        if (closeQty > 0) {
+          entries.push(createEntry(trade.tradeDate, trade.symbol, "YES", closeQty, closePrice, "CLOSE"));
+          openYes -= closeQty;
+        }
+        // Remaining quantity opens new NO position
+        const openQty = quantity - closeQty;
+        if (openQty > 0) {
+          entries.push(createEntry(trade.tradeDate, trade.symbol, "NO", openQty, price, "OPEN"));
+          openNo += openQty;
+        }
+      } else {
+        entries.push(createEntry(trade.tradeDate, trade.symbol, "NO", quantity, price, "OPEN"));
+        openNo += quantity;
+      }
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Process single-side trades (straightforward opens).
+ */
+function processSingleSideTrades(
+  trades: (TradeConfirmation | PurchaseSaleTrade)[]
+): TradeEntry[] {
+  return trades.map(trade => createEntry(
+    trade.tradeDate,
+    trade.symbol,
+    trade.subtype as "YES" | "NO",
+    getTradeQuantity(trade),
+    trade.tradePrice ?? 0,
+    "OPEN"
+  ));
+}
+
+/**
+ * Process settlement and generate synthetic settlements for opposite side and cross-symbol.
+ */
+function processSettlement(
+  trade: TradeConfirmation | PurchaseSaleTrade,
+  ctx: TradeConversionContext
+): TradeEntry[] {
+  const entries: TradeEntry[] = [];
+  const quantity = getTradeQuantity(trade);
+  const statementSide = trade.subtype as "YES" | "NO";
+  const statementPrice = trade.tradePrice ?? 0;
+  const oppositeSide = statementSide === "YES" ? "NO" : "YES";
+  const oppositePrice = 1 - statementPrice;
+
+  // Add settlement for the statement side
+  entries.push(createEntry(
+    trade.tradeDate,
+    trade.symbol,
+    statementSide,
+    quantity,
+    statementPrice,
+    "SETTLE",
+    statementPrice
+  ));
+
+  // Generate opposite side settlement if needed
+  const oppositeKey = `${trade.symbol}|${oppositeSide}`;
+  if (!ctx.existingSettlements.has(oppositeKey) && !ctx.generatedSyntheticSettlements.has(oppositeKey)) {
+    entries.push(createEntry(
+      trade.tradeDate,
+      trade.symbol,
+      oppositeSide,
+      quantity,
+      oppositePrice,
+      "SETTLE",
+      oppositePrice
+    ));
+    ctx.generatedSyntheticSettlements.add(oppositeKey);
+  }
+
+  // Cross-symbol settlements for sports games
+  const opposingSymbol = findOpposingTeamSymbol(trade.symbol, ctx.allSymbols);
+  if (opposingSymbol && !ctx.settlementsBySymbol.has(opposingSymbol)) {
+    const opposingYesPrice = statementSide === "NO" ? statementPrice : oppositePrice;
+    const opposingNoPrice = 1 - opposingYesPrice;
+
+    const opposingYesKey = `${opposingSymbol}|YES`;
+    const opposingNoKey = `${opposingSymbol}|NO`;
+
+    if (!ctx.generatedSyntheticSettlements.has(opposingYesKey)) {
+      entries.push(createEntry(trade.tradeDate, opposingSymbol, "YES", quantity, opposingYesPrice, "SETTLE", opposingYesPrice));
+      ctx.generatedSyntheticSettlements.add(opposingYesKey);
+    }
+
+    if (!ctx.generatedSyntheticSettlements.has(opposingNoKey)) {
+      entries.push(createEntry(trade.tradeDate, opposingSymbol, "NO", quantity, opposingNoPrice, "SETTLE", opposingNoPrice));
+      ctx.generatedSyntheticSettlements.add(opposingNoKey);
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Convert all trades to TradeEntry format for FIFO calculation.
  *
  * CRITICAL INSIGHT: Robinhood represents "selling" as "buying the opposite side".
  * - Selling YES @ $0.30 is shown as: buying NO @ $0.70 (since YES + NO = $1.00)
  * - Selling NO @ $0.40 is shown as: buying YES @ $0.60
- *
- * So when we see a "Trade" (not "Final Settlement"):
- * - YES Trade could be: Opening YES OR Closing NO (by selling NO)
- * - NO Trade could be: Opening NO OR Closing YES (by selling YES)
  *
  * Strategy: Match YES and NO trades by symbol to identify round-trips.
  * If YES qty matches NO qty, treat it as: OPEN YES → CLOSE YES (via the NO trade).
@@ -896,20 +934,25 @@ function convertAllTradesToEntries(
 ): TradeEntry[] {
   const entries: TradeEntry[] = [];
 
-  // First pass: identify settlements and group regular trades by symbol
-  const existingSettlements = new Set<string>();
-  const settlementsBySymbol = new Map<string, { side: string; price: number; date: string; quantity: number }>();
+  // Build context: identify settlements and group regular trades by symbol
+  const ctx: TradeConversionContext = {
+    existingSettlements: new Set(),
+    settlementsBySymbol: new Map(),
+    allSymbols: new Set(trades.map(t => t.symbol)),
+    generatedSyntheticSettlements: new Set(),
+  };
+
   const tradesBySymbol = new Map<string, (TradeConfirmation | PurchaseSaleTrade)[]>();
 
   for (const trade of trades) {
     if (trade.tradeType === "Final Settlement") {
       const key = `${trade.symbol}|${trade.subtype}`;
-      existingSettlements.add(key);
-      settlementsBySymbol.set(trade.symbol, {
+      ctx.existingSettlements.add(key);
+      ctx.settlementsBySymbol.set(trade.symbol, {
         side: trade.subtype,
         price: trade.tradePrice ?? 0,
         date: trade.tradeDate,
-        quantity: trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort,
+        quantity: getTradeQuantity(trade),
       });
     } else {
       const existing = tradesBySymbol.get(trade.symbol) ?? [];
@@ -918,265 +961,29 @@ function convertAllTradesToEntries(
     }
   }
 
-  // Collect all unique symbols (for cross-symbol settlement logic)
-  const allSymbols = new Set<string>();
-  for (const trade of trades) {
-    allSymbols.add(trade.symbol);
-  }
-
-  // Track which synthetic settlements we've already generated
-  const generatedSyntheticSettlements = new Set<string>();
-
-  // Second pass: process regular trades with sell-as-buy-opposite logic
+  // Process regular trades with sell-as-buy-opposite logic
   for (const [symbol, symbolTrades] of tradesBySymbol) {
-    // Separate YES and NO trades
     const yesTrades = symbolTrades.filter(t => t.subtype === "YES");
     const noTrades = symbolTrades.filter(t => t.subtype === "NO");
+    const yesQty = yesTrades.reduce((sum, t) => sum + getTradeQuantity(t), 0);
+    const noQty = noTrades.reduce((sum, t) => sum + getTradeQuantity(t), 0);
 
-    // Calculate total quantities
-    const yesQty = yesTrades.reduce((sum, t) => sum + (t.qtyLong > 0 ? t.qtyLong : t.qtyShort), 0);
-    const noQty = noTrades.reduce((sum, t) => sum + (t.qtyLong > 0 ? t.qtyLong : t.qtyShort), 0);
-
-    // Determine if this is a round-trip scenario
-    // If we have both YES and NO trades with matching quantities, it's a round-trip
     const isRoundTrip = yesTrades.length > 0 && noTrades.length > 0 && yesQty === noQty;
+    const isMixed = yesTrades.length > 0 && noTrades.length > 0 && !isRoundTrip;
 
     if (isRoundTrip) {
-      console.log(`[Round-Trip] ${symbol.substring(0, 35)}: YES qty=${yesQty}, NO qty=${noQty} → treating as YES open+close`);
-
-      // YES trades are OPENS
-      for (const trade of yesTrades) {
-        const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-        entries.push({
-          date: trade.tradeDate,
-          symbol: trade.symbol,
-          side: "YES",
-          quantity,
-          price: trade.tradePrice ?? 0,
-          type: "OPEN" as const,
-          fees: 0,
-        });
-      }
-
-      // NO trades are actually CLOSES of YES (sell YES = buy NO)
-      // Close price = 1 - NO_price (the actual sell price)
-      for (const trade of noTrades) {
-        const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-        const closePrice = 1 - (trade.tradePrice ?? 0);
-        entries.push({
-          date: trade.tradeDate,
-          symbol: trade.symbol,
-          side: "YES", // Closing the YES position
-          quantity,
-          price: closePrice,
-          type: "CLOSE" as const,
-          fees: 0,
-        });
-        console.log(`[Sell-as-Buy] ${symbol.substring(0, 30)}: NO @ $${(trade.tradePrice ?? 0).toFixed(2)} → CLOSE YES @ $${closePrice.toFixed(2)}`);
-      }
-    } else if (yesTrades.length > 0 && noTrades.length > 0) {
-      // Mixed scenario: partial closes or genuine both-sided position
-      // Use FIFO matching: process in chronological order
-      console.log(`[Mixed] ${symbol.substring(0, 35)}: YES qty=${yesQty}, NO qty=${noQty} → processing with FIFO matching`);
-
-      // Sort all trades by date
-      const allTrades = [...symbolTrades].sort((a, b) =>
-        new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime()
-      );
-
-      // Track open positions to determine if trades are opens or closes
-      let openYes = 0;
-      let openNo = 0;
-
-      for (const trade of allTrades) {
-        const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-        const side = trade.subtype;
-        const price = trade.tradePrice ?? 0;
-
-        if (side === "YES") {
-          if (openNo > 0) {
-            // This YES trade might be closing a NO position (sell NO = buy YES)
-            const closeQty = Math.min(quantity, openNo);
-            const closePrice = 1 - price; // Actual sell price
-            if (closeQty > 0) {
-              entries.push({
-                date: trade.tradeDate,
-                symbol: trade.symbol,
-                side: "NO",
-                quantity: closeQty,
-                price: closePrice,
-                type: "CLOSE" as const,
-                fees: 0,
-              });
-              openNo -= closeQty;
-            }
-            // Remaining quantity opens new YES position
-            const openQty = quantity - closeQty;
-            if (openQty > 0) {
-              entries.push({
-                date: trade.tradeDate,
-                symbol: trade.symbol,
-                side: "YES",
-                quantity: openQty,
-                price,
-                type: "OPEN" as const,
-                fees: 0,
-              });
-              openYes += openQty;
-            }
-          } else {
-            // No open NO position, so this is opening YES
-            entries.push({
-              date: trade.tradeDate,
-              symbol: trade.symbol,
-              side: "YES",
-              quantity,
-              price,
-              type: "OPEN" as const,
-              fees: 0,
-            });
-            openYes += quantity;
-          }
-        } else {
-          // NO trade
-          if (openYes > 0) {
-            // This NO trade might be closing a YES position (sell YES = buy NO)
-            const closeQty = Math.min(quantity, openYes);
-            const closePrice = 1 - price; // Actual sell price
-            if (closeQty > 0) {
-              entries.push({
-                date: trade.tradeDate,
-                symbol: trade.symbol,
-                side: "YES",
-                quantity: closeQty,
-                price: closePrice,
-                type: "CLOSE" as const,
-                fees: 0,
-              });
-              openYes -= closeQty;
-              console.log(`[Sell-as-Buy] ${symbol.substring(0, 30)}: NO @ $${price.toFixed(2)} → CLOSE YES @ $${closePrice.toFixed(2)} qty=${closeQty}`);
-            }
-            // Remaining quantity opens new NO position
-            const openQty = quantity - closeQty;
-            if (openQty > 0) {
-              entries.push({
-                date: trade.tradeDate,
-                symbol: trade.symbol,
-                side: "NO",
-                quantity: openQty,
-                price,
-                type: "OPEN" as const,
-                fees: 0,
-              });
-              openNo += openQty;
-            }
-          } else {
-            // No open YES position, so this is opening NO
-            entries.push({
-              date: trade.tradeDate,
-              symbol: trade.symbol,
-              side: "NO",
-              quantity,
-              price,
-              type: "OPEN" as const,
-              fees: 0,
-            });
-            openNo += quantity;
-          }
-        }
-      }
+      entries.push(...processRoundTripTrades(yesTrades, noTrades));
+    } else if (isMixed) {
+      entries.push(...processMixedTrades(symbolTrades));
     } else {
-      // Only one side has trades - straightforward opens
-      for (const trade of symbolTrades) {
-        const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-        entries.push({
-          date: trade.tradeDate,
-          symbol: trade.symbol,
-          side: trade.subtype,
-          quantity,
-          price: trade.tradePrice ?? 0,
-          type: "OPEN" as const,
-          fees: 0,
-        });
-      }
+      entries.push(...processSingleSideTrades(symbolTrades));
     }
   }
 
-  // Third pass: process settlements
+  // Process settlements
   for (const trade of trades) {
-    if (trade.tradeType !== "Final Settlement") continue;
-
-    const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-    const statementSide = trade.subtype;
-    const statementPrice = trade.tradePrice ?? 0;
-    const oppositeSide = statementSide === "YES" ? "NO" : "YES";
-    const oppositePrice = 1 - statementPrice;
-
-    const oppositeKey = `${trade.symbol}|${oppositeSide}`;
-
-    // Always add the settlement for the statement side
-    entries.push({
-      date: trade.tradeDate,
-      symbol: trade.symbol,
-      side: statementSide,
-      quantity,
-      price: statementPrice,
-      type: "SETTLE" as const,
-      settlementPrice: statementPrice,
-      fees: 0,
-    });
-
-    // Generate opposite side settlement if needed
-    if (!existingSettlements.has(oppositeKey) && !generatedSyntheticSettlements.has(oppositeKey)) {
-      entries.push({
-        date: trade.tradeDate,
-        symbol: trade.symbol,
-        side: oppositeSide,
-        quantity,
-        price: oppositePrice,
-        type: "SETTLE" as const,
-        settlementPrice: oppositePrice,
-        fees: 0,
-      });
-      generatedSyntheticSettlements.add(oppositeKey);
-    }
-
-    // Cross-symbol settlements for sports games
-    const opposingSymbol = findOpposingTeamSymbol(trade.symbol, allSymbols);
-    if (opposingSymbol && !settlementsBySymbol.has(opposingSymbol)) {
-      const opposingYesPrice = statementSide === "NO" ? statementPrice : oppositePrice;
-      const opposingNoPrice = 1 - opposingYesPrice;
-
-      const opposingYesKey = `${opposingSymbol}|YES`;
-      const opposingNoKey = `${opposingSymbol}|NO`;
-
-      if (!generatedSyntheticSettlements.has(opposingYesKey)) {
-        entries.push({
-          date: trade.tradeDate,
-          symbol: opposingSymbol,
-          side: "YES",
-          quantity,
-          price: opposingYesPrice,
-          type: "SETTLE" as const,
-          settlementPrice: opposingYesPrice,
-          fees: 0,
-        });
-        generatedSyntheticSettlements.add(opposingYesKey);
-      }
-
-      if (!generatedSyntheticSettlements.has(opposingNoKey)) {
-        entries.push({
-          date: trade.tradeDate,
-          symbol: opposingSymbol,
-          side: "NO",
-          quantity,
-          price: opposingNoPrice,
-          type: "SETTLE" as const,
-          settlementPrice: opposingNoPrice,
-          fees: 0,
-        });
-        generatedSyntheticSettlements.add(opposingNoKey);
-      }
+    if (trade.tradeType === "Final Settlement") {
+      entries.push(...processSettlement(trade, ctx));
     }
   }
 
