@@ -287,11 +287,28 @@ export function parseSection3(
     summaries.push(pendingSummary as TradeConfirmationSummary);
   }
 
+  // Calculate total fees for debugging
+  const totalFeesFromSummaries = summaries.reduce((sum, s) => sum + s.totalFees, 0);
+  const totalCommissions = summaries.reduce((sum, s) => sum + s.commissions, 0);
+  const totalExchangeFees = summaries.reduce((sum, s) => sum + s.exchangeFees, 0);
+  const totalNfaFees = summaries.reduce((sum, s) => sum + s.nfaFees, 0);
+
   parseLogger.result("S3", {
     rowsProcessed,
     validCount: summaries.length,
     warnings: warnings.length > 0 ? warnings : undefined,
   });
+
+  // Debug: Log fee breakdown
+  parseLogger.debug("S3", `Fees: total=$${totalFeesFromSummaries.toFixed(2)} (comm=$${totalCommissions.toFixed(2)}, exch=$${totalExchangeFees.toFixed(2)}, nfa=$${totalNfaFees.toFixed(2)})`);
+
+  // Debug: Log first few summaries with fees
+  if (summaries.length > 0) {
+    parseLogger.debug("S3", `Sample summaries (first 3):`);
+    for (const s of summaries.slice(0, 3)) {
+      parseLogger.debug("S3", `  ${s.symbol.substring(0, 30)}: qty=${s.totalQtyLong || s.totalQtyShort} fees=$${s.totalFees.toFixed(2)}`);
+    }
+  }
 
   return {
     summaries,

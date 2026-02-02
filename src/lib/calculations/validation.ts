@@ -145,7 +145,7 @@ export function validatePnlAgainstSection5(
       passes.push(validation);
     } else {
       // Check if this is a both-sided position (has BOTH YES and NO rows in Section 5)
-      // Our settlement side-inversion logic can't correctly handle these
+      // These positions had both YES and NO trades, which may have complex matching
       const isBothSidedPosition =
         s5Position.yesRow !== null && s5Position.noRow !== null;
 
@@ -191,7 +191,7 @@ export function validatePnlAgainstSection5(
 
   // Calculate adjusted discrepancy (excluding known issue categories)
   // - Prior-period issues: trades from before statement's look-back period
-  // - Both-sided issues: positions with YES+NO trades that settlement logic can't handle
+  // - Both-sided issues: complex positions with both YES+NO trades that may have matching issues
   const priorPeriodDiscrepancy = priorPeriodIssues.reduce(
     (sum, v) => sum + v.discrepancy, 0
   );
