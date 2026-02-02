@@ -275,31 +275,38 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 8: Dashboard Foundation
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create dashboard tile components with static/mock data.
 
 **Acceptance Criteria:**
-- [ ] Tile base component with glass effect
-- [ ] TileHeader with title and info tooltip
-- [ ] TileValue with formatting (currency, percentage)
-- [ ] TileTrend indicator (up/down/flat)
-- [ ] All 6 specific tiles created (static props)
-- [ ] 4-column responsive grid (4 → 2 → 1)
-- [ ] Dashboard page layout
+- [x] Tile base component with glass effect
+- [x] TileHeader with title and info tooltip
+- [x] TileValue with formatting (currency, percentage)
+- [x] TileTrend indicator (up/down/flat)
+- [x] All 6 specific tiles created (static props)
+- [x] 4-column responsive grid (4 → 2 → 1)
+- [x] Dashboard page layout
 
-**Files to Create/Modify:**
-- `src/components/dashboard/tile.tsx`
-- `src/components/dashboard/tile-header.tsx`
-- `src/components/dashboard/tile-value.tsx`
-- `src/components/dashboard/tile-trend.tsx`
+**Files Created:**
+- `src/components/dashboard/tile.tsx` - Base tile with glass effect
+- `src/components/dashboard/tile-header.tsx` - Header with tooltip
+- `src/components/dashboard/tile-value.tsx` - Formatted values (currency, percentage, etc.)
+- `src/components/dashboard/tile-trend.tsx` - Trend indicator with icons
 - `src/components/dashboard/tiles/net-liquidity-tile.tsx`
 - `src/components/dashboard/tiles/realized-pnl-tile.tsx`
 - `src/components/dashboard/tiles/unrealized-pnl-tile.tsx`
 - `src/components/dashboard/tiles/total-fees-tile.tsx`
 - `src/components/dashboard/tiles/trading-profit-tile.tsx`
 - `src/components/dashboard/tiles/win-rate-tile.tsx`
-- `src/features/dashboard/dashboard-grid.tsx`
+- `src/components/dashboard/tiles/index.ts` - Barrel export for tiles
+- `src/components/dashboard/index.ts` - Barrel export for dashboard components
+- `src/features/dashboard/dashboard-grid.tsx` - Responsive grid layout
+- `src/features/dashboard/index.ts` - Barrel export
+
+**Files Modified:**
+- `src/app/layout.tsx` - Added TooltipProvider
+- `src/app/(app)/dashboard/page.tsx` - Updated to use DashboardGrid
 
 **Demo:** Dashboard renders with styled tiles showing mock numbers
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/lib/state/query-provider";
 import { BrowserBlocker } from "@/components/browser";
 import "./globals.css";
@@ -26,8 +27,10 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <BrowserBlocker>
           <QueryProvider>
-            {children}
-            <Toaster />
+            <TooltipProvider delayDuration={300}>
+              {children}
+              <Toaster />
+            </TooltipProvider>
           </QueryProvider>
         </BrowserBlocker>
       </body>
