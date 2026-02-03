@@ -313,29 +313,35 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 9: Dashboard Data Integration
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Connect dashboard to real database queries and add charts.
 
 **Acceptance Criteria:**
-- [ ] Dashboard queries in TanStack Query hooks
-- [ ] Tiles display real data from database
-- [ ] Loading states with skeletons
-- [ ] Empty state when no data imported
-- [ ] Sparkline component using Recharts
-- [ ] TileSparkline showing 6-month trend
-- [ ] TimeSeriesChart for net liquidity over time
-- [ ] Recharts themed with design system colors
+- [x] Dashboard queries in TanStack Query hooks
+- [x] Tiles display real data from database
+- [x] Loading states with skeletons
+- [x] Empty state when no data imported
+- [x] Sparkline component using Recharts
+- [x] TileSparkline showing 6-month trend
+- [x] TimeSeriesChart for net liquidity over time
+- [x] Recharts themed with design system colors
 
-**Files to Create/Modify:**
-- `src/lib/db/queries/dashboard.ts` - Dashboard-specific queries
-- `src/hooks/use-dashboard-data.ts`
-- `src/components/charts/sparkline.tsx`
-- `src/components/charts/time-series-chart.tsx`
-- `src/components/charts/chart-tooltip.tsx`
-- `src/components/feedback/skeleton-loaders.tsx`
-- `src/components/feedback/empty-state.tsx`
-- Update all tile components to use real data
+**Files Created/Modified:**
+- `src/lib/db/queries/dashboard.ts` - Dashboard-specific queries (existed)
+- `src/hooks/use-dashboard-data.ts` - TanStack Query hooks for dashboard data
+- `src/hooks/index.ts` - Barrel export for hooks
+- `src/components/charts/sparkline.tsx` - Mini chart for tiles
+- `src/components/charts/time-series-chart.tsx` - Full line chart
+- `src/components/charts/chart-tooltip.tsx` - Custom styled tooltips
+- `src/components/charts/index.ts` - Barrel export for charts
+- `src/components/feedback/skeleton-loaders.tsx` - Loading skeletons
+- `src/components/feedback/empty-state.tsx` - Empty data state
+- `src/components/feedback/index.ts` - Barrel export for feedback
+- `src/components/dashboard/tile-sparkline.tsx` - Sparkline wrapper for tiles
+- `src/components/dashboard/tiles/net-liquidity-tile.tsx` - Updated with sparkline
+- `src/features/dashboard/dashboard-grid.tsx` - Updated for real data
+- `src/app/(app)/dashboard/page.tsx` - Connected to real data
 
 **Demo:** Import statement → dashboard shows accurate real data with charts
 

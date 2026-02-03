@@ -36,38 +36,38 @@
 ## 2. Dashboard Tiles
 
 ### Base Tile
-- [ ] 🔧 **Tile** - Dashboard metric card container
+- [x] 🔧 **Tile** - Dashboard metric card container
   - Props: `title`, `tooltip`, `children`
   - Base: shadcn Card + glass effect gradient
   - Variants: default, compact
 
-- [ ] 🔧 **TileHeader** - Tile title area
+- [x] 🔧 **TileHeader** - Tile title area
   - Props: `title`, `tooltip`
   - Contains: TileTitle + TileTooltip
 
-- [ ] ✅ **TileTooltip** - Info tooltip on tiles
+- [x] ✅ **TileTooltip** - Info tooltip on tiles
   - Props: `content`
   - Use: shadcn Tooltip directly
 
-- [ ] 🎨 **TileValue** - Large metric display
+- [x] 🎨 **TileValue** - Large metric display
   - Props: `value`, `prefix`, `suffix`, `trend`
   - Variants: positive, negative, neutral
 
-- [ ] 🎨 **TileTrend** - Trend indicator
+- [x] 🎨 **TileTrend** - Trend indicator
   - Props: `value`, `direction`
   - Variants: up (green), down (red), flat (muted)
 
-- [ ] 🎨 **TileSparkline** - Mini chart in tile
+- [x] 🎨 **TileSparkline** - Mini chart in tile
   - Props: `data: {value, date}[]`
   - Library: Recharts sparkline
 
 ### Specific Tiles
-- [ ] 🎨 **NetLiquidityTile** - Net liquidity metric
-- [ ] 🎨 **RealizedPnLTile** - Realized P&L metric
-- [ ] 🎨 **UnrealizedPnLTile** - Unrealized P&L metric
-- [ ] 🎨 **TotalFeesTile** - Total fees metric
-- [ ] 🎨 **TradingProfitTile** - Trading profit metric
-- [ ] 🎨 **WinRateTile** - Win rate metric (toggleable count/volume)
+- [x] 🎨 **NetLiquidityTile** - Net liquidity metric
+- [x] 🎨 **RealizedPnLTile** - Realized P&L metric
+- [x] 🎨 **UnrealizedPnLTile** - Unrealized P&L metric
+- [x] 🎨 **TotalFeesTile** - Total fees metric
+- [x] 🎨 **TradingProfitTile** - Trading profit metric
+- [x] 🎨 **WinRateTile** - Win rate metric (toggleable count/volume)
   - Props: `mode: "count" | "volume"`, `onToggle`
 
 ---
@@ -145,7 +145,7 @@
 ## 4. Charts & Analytics
 
 ### Chart Wrappers
-- [ ] 🎨 **TimeSeriesChart** - Line chart for trends
+- [x] 🎨 **TimeSeriesChart** - Line chart for trends
   - Props: `data`, `xKey`, `yKey`, `height`
   - Library: Recharts LineChart
   - Features: tooltip, responsive
@@ -165,12 +165,12 @@
   - Library: Recharts ComposedChart
   - Shows: commission vs exchange fees + cumulative
 
-- [ ] 🎨 **Sparkline** - Mini inline chart
+- [x] 🎨 **Sparkline** - Mini inline chart
   - Props: `data`, `width`, `height`
   - Library: Recharts (simplified)
 
 ### Chart Utilities
-- [ ] 🎨 **ChartTooltip** - Custom chart tooltip
+- [x] 🎨 **ChartTooltip** - Custom chart tooltip
   - Props: `active`, `payload`, `label`
 
 - [ ] 🎨 **ChartLegend** - Chart legend
@@ -210,21 +210,21 @@
 
 ## 6. Feedback & Status Components
 
-- [ ] ✅ **Toast** - Notification toast
+- [x] ✅ **Toast** - Notification toast
   - Use: shadcn Toast (Sonner)
 
-- [ ] ✅ **Progress** - Progress bar
+- [x] ✅ **Progress** - Progress bar
   - Use: shadcn Progress
 
 - [ ] 🔧 **LoadingSpinner** - Loading indicator
   - Props: `size`
   - Variants: sm, md, lg
 
-- [ ] 🎨 **Skeleton** - Loading placeholder
+- [x] 🎨 **Skeleton** - Loading placeholder
   - Props: `type: "tile" | "table" | "chart"`
   - Variants: different shapes per type
 
-- [ ] 🎨 **EmptyState** - No data placeholder
+- [x] 🎨 **EmptyState** - No data placeholder
   - Props: `icon`, `title`, `description`, `action`
 
 - [ ] 🎨 **ErrorState** - Error display

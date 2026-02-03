@@ -23,8 +23,8 @@ export function createQueryClient(): QueryClient {
         refetchOnWindowFocus: true,
         // Don't refetch on reconnect for local-first app
         refetchOnReconnect: false,
-        // Don't refetch on mount by default
-        refetchOnMount: false,
+        // Refetch on mount if data is stale (needed for post-import navigation)
+        refetchOnMount: true,
       },
       mutations: {
         // Retry failed mutations 1 time

@@ -24,6 +24,38 @@ export type SQLiteDB = Awaited<ReturnType<typeof initSQLite>>;
 let dbInstance: SQLiteDB | null = null;
 let initPromise: Promise<SQLiteDB> | null = null;
 
+// Query queue to prevent concurrent database access
+// wa-sqlite with IndexedDB doesn't handle concurrent queries well
+let queryQueue: Promise<unknown> = Promise.resolve();
+
+// Transaction context - when set, operations use this db directly without queuing
+// This prevents deadlocks when operations inside a transaction try to queue
+let transactionDb: SQLiteDB | null = null;
+
+/**
+ * Queue a database operation to run sequentially
+ * If we're inside a transaction, execute directly without queuing to prevent deadlock
+ */
+function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
+  // If we're inside a transaction, execute directly without queuing
+  // The transaction itself is already serialized via the queue
+  if (transactionDb) {
+    return operation();
+  }
+
+  // Chain this operation after the current queue
+  const result = queryQueue.then(operation);
+
+  // Update queue to continue after this operation completes (success or failure)
+  // We catch errors here ONLY to prevent the queue from getting stuck
+  // The error still propagates to the caller via `result`
+  queryQueue = result.catch((error) => {
+    console.error("[DB] Query error (queue continues):", error);
+  });
+
+  return result;
+}
+
 /**
  * Check if the browser supports OPFS (Chromium-based browsers)
  */
@@ -107,46 +139,78 @@ export async function exportDatabase(): Promise<Uint8Array> {
 
 /**
  * Execute a SQL query with parameters
+ * Queries are automatically queued to prevent wa-sqlite lock contention
+ * If inside a transaction, uses the transaction's db instance directly
  */
 export async function query<T = unknown>(
   sql: string,
   params?: unknown[]
 ): Promise<T[]> {
-  const db = await getDatabase();
-  return (await db.run(sql, params)) as T[];
+  // If inside a transaction, use the transaction's db directly
+  if (transactionDb) {
+    return (await transactionDb.run(sql, params)) as T[];
+  }
+
+  return queueOperation(async () => {
+    const db = await getDatabase();
+    return (await db.run(sql, params)) as T[];
+  });
 }
 
 /**
  * Execute a SQL statement (INSERT, UPDATE, DELETE)
+ * Statements are automatically queued to prevent wa-sqlite lock contention
+ * If inside a transaction, uses the transaction's db instance directly
  */
 export async function execute(
   sql: string,
   params?: unknown[]
 ): Promise<{ changes: number; lastInsertRowId: number }> {
-  const db = await getDatabase();
-  await db.run(sql, params);
-  return {
-    changes: Number(db.changes()),
-    lastInsertRowId: Number(db.lastInsertRowId()),
-  };
+  // If inside a transaction, use the transaction's db directly
+  if (transactionDb) {
+    await transactionDb.run(sql, params);
+    return {
+      changes: Number(transactionDb.changes()),
+      lastInsertRowId: Number(transactionDb.lastInsertRowId()),
+    };
+  }
+
+  return queueOperation(async () => {
+    const db = await getDatabase();
+    await db.run(sql, params);
+    return {
+      changes: Number(db.changes()),
+      lastInsertRowId: Number(db.lastInsertRowId()),
+    };
+  });
 }
 
 /**
  * Execute multiple SQL statements in a transaction
+ * The entire transaction is queued to prevent wa-sqlite lock contention
+ * Sets transactionDb context so nested query/execute calls bypass the queue
  */
 export async function transaction<T>(
   fn: (db: SQLiteDB) => Promise<T>
 ): Promise<T> {
-  const db = await getDatabase();
-  try {
-    await db.run("BEGIN TRANSACTION");
-    const result = await fn(db);
-    await db.run("COMMIT");
-    return result;
-  } catch (error) {
-    await db.run("ROLLBACK");
-    throw error;
-  }
+  return queueOperation(async () => {
+    const db = await getDatabase();
+    try {
+      await db.run("BEGIN TRANSACTION");
+      // Set transaction context so nested calls bypass the queue
+      transactionDb = db;
+      const result = await fn(db);
+      // Clear context before commit
+      transactionDb = null;
+      await db.run("COMMIT");
+      return result;
+    } catch (error) {
+      // Clear context before rollback
+      transactionDb = null;
+      await db.run("ROLLBACK");
+      throw error;
+    }
+  });
 }
 
 /**

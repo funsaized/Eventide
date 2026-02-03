@@ -271,6 +271,7 @@ export async function getFeeDragPercentage(): Promise<number> {
 
 /**
  * Get all dashboard data in one call (optimized)
+ * Note: Queries run sequentially to avoid wa-sqlite WebLock contention
  */
 export async function getDashboardSummary(): Promise<{
   netLiquidity: number | null;
@@ -286,30 +287,22 @@ export async function getDashboardSummary(): Promise<{
   tradeCount: number;
   positionCount: number;
 }> {
-  // Execute queries in parallel where possible
-  const [
-    netLiquidity,
-    realizedPnL,
-    unrealizedPnL,
-    totalFees,
-    winRateByCount,
-    winRateByVolume,
-    feeDragPercent,
-    snapshot,
-    tradeCount,
-    positionCount,
-  ] = await Promise.all([
-    getCurrentNetLiquidity(),
-    getTotalRealizedPnL(),
-    getTotalUnrealizedPnL(),
-    getTotalFees(),
-    getWinRateByCount(),
-    getWinRateByVolume(),
-    getFeeDragPercentage(),
-    getPortfolioSnapshot(),
-    query<{ count: number }>(`SELECT COUNT(*) as count FROM trades`),
-    query<{ count: number }>(`SELECT COUNT(*) as count FROM closed_positions`),
-  ]);
+  // Execute queries sequentially to avoid wa-sqlite lock contention
+  // The IndexedDB storage backend doesn't handle concurrent queries well
+  const netLiquidity = await getCurrentNetLiquidity();
+  const realizedPnL = await getTotalRealizedPnL();
+  const unrealizedPnL = await getTotalUnrealizedPnL();
+  const totalFees = await getTotalFees();
+  const winRateByCount = await getWinRateByCount();
+  const winRateByVolume = await getWinRateByVolume();
+  const feeDragPercent = await getFeeDragPercentage();
+  const snapshot = await getPortfolioSnapshot();
+  const tradeCount = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM trades`
+  );
+  const positionCount = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM closed_positions`
+  );
 
   const totalDeposits = snapshot?.total_deposits ?? 0;
   const totalWithdrawals = snapshot?.total_withdrawals ?? 0;

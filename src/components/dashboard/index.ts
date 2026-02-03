@@ -11,5 +11,8 @@ export type { TileValueProps, ValueFormat, ValueColor } from "./tile-value";
 export { TileTrend } from "./tile-trend";
 export type { TileTrendProps, TrendDirection } from "./tile-trend";
 
+export { TileSparkline } from "./tile-sparkline";
+export type { TileSparklineProps } from "./tile-sparkline";
+
 // Specific tiles
 export * from "./tiles";

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MobileSidebar } from "./sidebar";
@@ -19,9 +20,11 @@ export function TopBar({ title }: TopBarProps) {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <Button size="sm" className="gap-2">
-          <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Upload Statement</span>
+        <Button asChild size="sm" className="gap-2">
+          <Link href="/upload">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Upload Statement</span>
+          </Link>
         </Button>
       </div>
     </header>

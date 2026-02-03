@@ -22,7 +22,11 @@ import {
   type ValidationFailure,
 } from "@/components/upload";
 import { useToast } from "@/hooks/use-toast";
-import type { ImportPhase, ImportResult } from "@/lib/parsing/import-pipeline";
+import { useImportStatement } from "@/hooks/use-import-statement";
+import { loadPDFFromFile } from "@/lib/parsing/pdf-loader";
+import { parseDocument } from "@/lib/parsing/import-pipeline";
+import { getTotalPnl } from "@/lib/calculations/fifo";
+import type { ImportPhase } from "@/lib/parsing/import-pipeline";
 
 type FlowState =
   | "IDLE"
@@ -61,6 +65,48 @@ export function UploadFlow() {
   const [validationFailures, setValidationFailures] = useState<ValidationFailure[]>([]);
   const [validationTotalDiscrepancy, setValidationTotalDiscrepancy] = useState(0);
 
+  // Import mutation with automatic query invalidation
+  const importMutation = useImportStatement({
+    onProgress: (p, prog, msg) => {
+      setPhase(p);
+      setProgress(prog);
+      setMessage(msg);
+    },
+    onSuccess: (result) => {
+      if (result.success) {
+        setPhase("COMPLETE");
+        setProgress(100);
+        setState("COMPLETE");
+
+        toast({
+          title: "Import Successful",
+          description: result.tradesImported
+            ? `Imported ${result.tradesImported} trades, ${result.closedPositionsImported} closed positions`
+            : "Statement replaced successfully",
+        });
+
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1500);
+      } else if (result.duplicateImport) {
+        setDuplicateInfo(result.duplicateImport);
+        setState("DUPLICATE");
+      } else {
+        setPhase("FAILED");
+        setError(result.error ?? "Import failed");
+        setErrorDetails(result.validationWarnings ?? []);
+        setState("ERROR");
+      }
+    },
+    onError: (err) => {
+      console.error("Import error:", err);
+      setPhase("FAILED");
+      setError(err.message);
+      setState("ERROR");
+    },
+  });
+
   /**
    * Handle file selection
    */
@@ -71,11 +117,6 @@ export function UploadFlow() {
     setErrorDetails([]);
 
     try {
-      // Dynamic imports to avoid SSR issues
-      const { loadPDFFromFile } = await import("@/lib/parsing/pdf-loader");
-      const { parseDocument } = await import("@/lib/parsing/import-pipeline");
-      const { getTotalPnl } = await import("@/lib/calculations/fifo");
-
       // Phase 1: Extract PDF
       setPhase("EXTRACTING");
       setProgress(10);
@@ -143,7 +184,7 @@ export function UploadFlow() {
   /**
    * Handle import confirmation
    */
-  const handleImport = useCallback(async () => {
+  const handleImport = useCallback(() => {
     if (!selectedFile) return;
 
     setState("IMPORTING");
@@ -151,89 +192,22 @@ export function UploadFlow() {
     setProgress(0);
     setMessage("Starting import...");
 
-    try {
-      const { importStatement } = await import("@/lib/parsing/import-pipeline");
-
-      const result: ImportResult = await importStatement(
-        selectedFile,
-        { verbose: false },
-        (p, prog, msg) => {
-          setPhase(p);
-          setProgress(prog);
-          setMessage(msg);
-        }
-      );
-
-      if (result.success) {
-        setPhase("COMPLETE");
-        setProgress(100);
-        setState("COMPLETE");
-
-        toast({
-          title: "Import Successful",
-          description: `Imported ${result.tradesImported} trades, ${result.closedPositionsImported} closed positions`,
-        });
-
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1500);
-      } else if (result.duplicateImport) {
-        setDuplicateInfo(result.duplicateImport);
-        setState("DUPLICATE");
-      } else {
-        setPhase("FAILED");
-        setError(result.error ?? "Import failed");
-        setErrorDetails(result.validationWarnings);
-        setState("ERROR");
-      }
-    } catch (err) {
-      console.error("Import error:", err);
-      setPhase("FAILED");
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setState("ERROR");
-    }
-  }, [selectedFile, router, toast]);
+    importMutation.mutate({ file: selectedFile, skipDuplicateCheck: false });
+  }, [selectedFile, importMutation]);
 
   /**
    * Handle duplicate replacement
    */
-  const handleReplace = useCallback(async () => {
+  const handleReplace = useCallback(() => {
     if (!selectedFile) return;
 
     setState("IMPORTING");
+    setPhase("PERSISTING");
+    setProgress(0);
+    setMessage("Replacing existing import...");
 
-    try {
-      const { importStatement } = await import("@/lib/parsing/import-pipeline");
-
-      const result: ImportResult = await importStatement(
-        selectedFile,
-        { skipDuplicateCheck: true, verbose: false },
-        (p, prog, msg) => {
-          setPhase(p);
-          setProgress(prog);
-          setMessage(msg);
-        }
-      );
-
-      if (result.success) {
-        setState("COMPLETE");
-        toast({
-          title: "Import Successful",
-          description: "Statement replaced successfully",
-        });
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 1500);
-      } else {
-        setError(result.error ?? "Replace failed");
-        setState("ERROR");
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-      setState("ERROR");
-    }
-  }, [selectedFile, router, toast]);
+    importMutation.mutate({ file: selectedFile, skipDuplicateCheck: true });
+  }, [selectedFile, importMutation]);
 
   /**
    * Reset to initial state
@@ -248,7 +222,8 @@ export function UploadFlow() {
     setPhase("EXTRACTING");
     setProgress(0);
     setMessage("");
-  }, []);
+    importMutation.reset();
+  }, [importMutation]);
 
   return (
     <div className="space-y-6">
@@ -315,7 +290,7 @@ export function UploadFlow() {
           duplicate={duplicateInfo}
           onCancel={handleReset}
           onReplace={handleReplace}
-          isReplacing={state === "IMPORTING"}
+          isReplacing={importMutation.isPending}
         />
       )}
 

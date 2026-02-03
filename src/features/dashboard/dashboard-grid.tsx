@@ -8,15 +8,17 @@ import {
   TradingProfitTile,
   WinRateTile,
 } from "@/components/dashboard";
+import type { SparklineDataPoint } from "@/components/charts";
 
-/** Props for dashboard tile data (will be connected to real data in Phase 9) */
+/** Props for dashboard tile data */
 interface DashboardData {
-  netLiquidity: number;
-  netLiquidityChange: number;
+  netLiquidity: number | null;
+  netLiquidityChange?: number;
+  netLiquidityHistory?: SparklineDataPoint[];
   realizedPnl: number;
   tradesClosed: number;
   unrealizedPnl: number;
-  openPositions: number;
+  openPositions?: number;
   totalFees: number;
   feePercent?: number;
   tradingProfit: number;
@@ -33,31 +35,11 @@ interface DashboardGridProps {
   isLoading?: boolean;
 }
 
-/** Static mock data for Phase 8 */
-const MOCK_DATA: DashboardData = {
-  netLiquidity: 5432.1,
-  netLiquidityChange: 12.5,
-  realizedPnl: 1234.56,
-  tradesClosed: 147,
-  unrealizedPnl: -89.5,
-  openPositions: 8,
-  totalFees: 156.78,
-  feePercent: 1.2,
-  tradingProfit: 1077.78,
-  grossProfit: 1234.56,
-  winRate: 62.4,
-  wins: 92,
-  losses: 55,
-};
-
 /**
  * Dashboard grid displaying all portfolio metric tiles.
  * Responsive layout: 4 columns on desktop, 2 on tablet, 1 on mobile.
  */
 export function DashboardGrid({ data, isLoading = false }: DashboardGridProps) {
-  // Use mock data if no real data provided
-  const displayData = data ?? MOCK_DATA;
-
   return (
     <section aria-labelledby="portfolio-overview">
       <h2 id="portfolio-overview" className="sr-only">
@@ -65,34 +47,35 @@ export function DashboardGrid({ data, isLoading = false }: DashboardGridProps) {
       </h2>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <NetLiquidityTile
-          value={displayData.netLiquidity}
-          changePercent={displayData.netLiquidityChange}
+          value={data?.netLiquidity ?? 0}
+          changePercent={data?.netLiquidityChange}
+          sparklineData={data?.netLiquidityHistory}
           isLoading={isLoading}
         />
         <RealizedPnlTile
-          value={displayData.realizedPnl}
-          tradesClosed={displayData.tradesClosed}
+          value={data?.realizedPnl ?? 0}
+          tradesClosed={data?.tradesClosed ?? 0}
           isLoading={isLoading}
         />
         <UnrealizedPnlTile
-          value={displayData.unrealizedPnl}
-          openPositions={displayData.openPositions}
+          value={data?.unrealizedPnl ?? 0}
+          openPositions={data?.openPositions ?? 0}
           isLoading={isLoading}
         />
         <WinRateTile
-          value={displayData.winRate}
-          wins={displayData.wins}
-          losses={displayData.losses}
+          value={data?.winRate ?? 0}
+          wins={data?.wins ?? 0}
+          losses={data?.losses ?? 0}
           isLoading={isLoading}
         />
         <TotalFeesTile
-          value={displayData.totalFees}
-          feePercent={displayData.feePercent}
+          value={data?.totalFees ?? 0}
+          feePercent={data?.feePercent}
           isLoading={isLoading}
         />
         <TradingProfitTile
-          value={displayData.tradingProfit}
-          grossProfit={displayData.grossProfit}
+          value={data?.tradingProfit ?? 0}
+          grossProfit={data?.grossProfit}
           isLoading={isLoading}
         />
       </div>

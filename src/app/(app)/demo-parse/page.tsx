@@ -15,6 +15,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { loadPDFFromFile } from "@/lib/parsing/pdf-loader";
+import { parseDocument, importStatement } from "@/lib/parsing/import-pipeline";
+import { setDebugLogging } from "@/lib/parsing/sections/parse-helpers";
+import { getTotalPnl } from "@/lib/calculations/fifo";
 
 interface ParseResult {
   // Metadata
@@ -96,11 +100,6 @@ export default function DemoParsePage() {
     const startTime = performance.now();
 
     try {
-      // Dynamic imports to avoid SSR issues
-      const { loadPDFFromFile, flattenDocument } = await import("@/lib/parsing/pdf-loader");
-      const { parseDocument } = await import("@/lib/parsing/import-pipeline");
-      const { setDebugLogging } = await import("@/lib/parsing/sections/parse-helpers");
-
       // Enable debug logging
       setDebugLogging(true);
 
@@ -113,7 +112,6 @@ export default function DemoParsePage() {
 
       setStatus("Parsing sections and calculating P&L...");
       const parsed = await parseDocument(document, true);
-      const { getTotalPnl } = await import("@/lib/calculations/fifo");
 
       const parseTimeMs = Math.round(performance.now() - startTime);
       const fifoTotals = getTotalPnl(parsed.fifoResults);
@@ -196,8 +194,6 @@ export default function DemoParsePage() {
     setImportError(null);
 
     try {
-      const { importStatement } = await import("@/lib/parsing/import-pipeline");
-
       const importResult = await importStatement(file, { verbose: true }, (phase, progress, message) => {
         setStatus(`${phase}: ${message} (${Math.round(progress * 100)}%)`);
       });
