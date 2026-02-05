@@ -54,13 +54,25 @@ export async function getNetLiquidityHistory(): Promise<
 }
 
 /**
- * Get total realized P&L
+ * Get total realized P&L (gross P&L minus fees)
+ * Uses gross_pnl from closed_positions + authoritative fees from statement_imports
+ * so that realized P&L is accurate even when Section 3 fee attribution is incomplete.
  */
 export async function getTotalRealizedPnL(): Promise<number> {
-  const results = await query<{ total: number | null }>(
-    `SELECT SUM(net_pnl) as total FROM closed_positions`
+  const grossResult = await query<{ total: number | null }>(
+    `SELECT SUM(gross_pnl) as total FROM closed_positions`
   );
-  return results[0]?.total ?? 0;
+  const grossPnl = grossResult[0]?.total ?? 0;
+
+  // Section 10 total_fees is stored as negative (expense)
+  const feeResult = await query<{ total: number | null }>(
+    `SELECT SUM(total_fees) as total FROM statement_imports WHERE total_fees IS NOT NULL`
+  );
+  const totalFees = feeResult[0]?.total ?? 0;
+
+  // gross_pnl + total_fees (both can be negative, addition is correct)
+  // e.g., -133.98 + (-114.64) = -248.62
+  return grossPnl + totalFees;
 }
 
 /**
@@ -77,9 +89,22 @@ export async function getTotalUnrealizedPnL(): Promise<number> {
 
 /**
  * Get total fees paid
+ * Uses Section 10 (Account Summary) total as the authoritative source.
+ * Section 10 stores fees as negative values (expenses), so we return
+ * the absolute value for display.
  */
 export async function getTotalFees(): Promise<number> {
-  // Sum fees from closed positions and trades
+  const statementFees = await query<{ total: number | null }>(
+    `SELECT SUM(total_fees) as total FROM statement_imports WHERE total_fees IS NOT NULL`
+  );
+  const section10Total = statementFees[0]?.total ?? 0;
+
+  // Section 10 stores fees as negative; return absolute value
+  if (section10Total !== 0) {
+    return Math.abs(section10Total);
+  }
+
+  // Fallback: sum of attributed fees on closed positions
   const results = await query<{ total: number | null }>(
     `SELECT SUM(fees) as total FROM closed_positions`
   );
@@ -87,17 +112,13 @@ export async function getTotalFees(): Promise<number> {
 }
 
 /**
- * Get trading profit (net liquidity - net deposits)
+ * Get trading profit (total account performance: realized + unrealized)
+ * Realized P&L already includes fees (gross P&L from Section 5 + fees from Section 10).
  */
 export async function getTradingProfit(): Promise<number> {
-  const snapshot = await getPortfolioSnapshot();
-  if (!snapshot) return 0;
-
-  const netDeposits =
-    (snapshot.total_deposits ?? 0) - Math.abs(snapshot.total_withdrawals ?? 0);
-  const netLiquidity = snapshot.current_net_liquidity ?? 0;
-
-  return netLiquidity - netDeposits;
+  const realizedPnL = await getTotalRealizedPnL();
+  const unrealizedPnL = await getTotalUnrealizedPnL();
+  return realizedPnL + unrealizedPnL;
 }
 
 // ============================================================================
@@ -251,18 +272,17 @@ export async function getMonthlyFees(): Promise<
 
 /**
  * Get fee drag percentage (fees / total volume)
+ * Uses Section 10 authoritative fee total for accuracy.
  */
 export async function getFeeDragPercentage(): Promise<number> {
-  const results = await query<{ drag: number | null }>(
-    `SELECT
-      CASE
-        WHEN SUM(ABS(gross_pnl)) > 0
-        THEN SUM(fees) / SUM(ABS(gross_pnl)) * 100
-        ELSE 0
-      END as drag
-     FROM closed_positions`
+  const totalFees = await getTotalFees();
+  const volumeResult = await query<{ total: number | null }>(
+    `SELECT SUM(ABS(gross_pnl)) as total FROM closed_positions`
   );
-  return results[0]?.drag ?? 0;
+  const totalVolume = volumeResult[0]?.total ?? 0;
+
+  if (totalVolume === 0) return 0;
+  return (totalFees / totalVolume) * 100;
 }
 
 // ============================================================================
@@ -276,6 +296,7 @@ export async function getFeeDragPercentage(): Promise<number> {
 export async function getDashboardSummary(): Promise<{
   netLiquidity: number | null;
   realizedPnL: number;
+  grossPnL: number;
   unrealizedPnL: number;
   totalFees: number;
   tradingProfit: number;
@@ -286,6 +307,7 @@ export async function getDashboardSummary(): Promise<{
   totalWithdrawals: number;
   tradeCount: number;
   positionCount: number;
+  openPositionCount: number;
 }> {
   // Execute queries sequentially to avoid wa-sqlite lock contention
   // The IndexedDB storage backend doesn't handle concurrent queries well
@@ -303,15 +325,27 @@ export async function getDashboardSummary(): Promise<{
   const positionCount = await query<{ count: number }>(
     `SELECT COUNT(*) as count FROM closed_positions`
   );
+  // Gross P&L before fees (Section 5 source of truth)
+  const grossPnLResult = await query<{ total: number | null }>(
+    `SELECT SUM(gross_pnl) as total FROM closed_positions`
+  );
+  // Open position count from latest snapshot
+  const openPositionResult = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM open_positions
+     WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM open_positions)`
+  );
 
   const totalDeposits = snapshot?.total_deposits ?? 0;
   const totalWithdrawals = snapshot?.total_withdrawals ?? 0;
-  const netDeposits = totalDeposits - Math.abs(totalWithdrawals);
-  const tradingProfit = (netLiquidity ?? 0) - netDeposits;
+
+  // Trading Profit = total account performance (realized + unrealized)
+  // realizedPnL already includes fees (gross P&L + fees from Section 10)
+  const tradingProfit = realizedPnL + unrealizedPnL;
 
   return {
     netLiquidity,
     realizedPnL,
+    grossPnL: grossPnLResult[0]?.total ?? 0,
     unrealizedPnL,
     totalFees,
     tradingProfit,
@@ -322,6 +356,7 @@ export async function getDashboardSummary(): Promise<{
     totalWithdrawals,
     tradeCount: tradeCount[0]?.count ?? 0,
     positionCount: positionCount[0]?.count ?? 0,
+    openPositionCount: openPositionResult[0]?.count ?? 0,
   };
 }
 

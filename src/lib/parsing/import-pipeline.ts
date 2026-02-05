@@ -600,6 +600,20 @@ async function persistImport(
     }
 
     // 3. Create closed positions
+    // Aggregate attributed fees by symbol from trades
+    const feesBySymbol = new Map<string, number>();
+    for (const trade of data.tradesWithFees) {
+      const current = feesBySymbol.get(trade.symbol) ?? 0;
+      feesBySymbol.set(trade.symbol, current + trade.totalFees);
+    }
+
+    // Count positions per symbol for proportional fee distribution
+    const positionCountBySymbol = new Map<string, number>();
+    for (const position of data.pairedPositions) {
+      const count = positionCountBySymbol.get(position.symbol) ?? 0;
+      positionCountBySymbol.set(position.symbol, count + 1);
+    }
+
     const closedPositionInputs: CreateClosedPositionInput[] = data.pairedPositions.map(
       (position) => {
         // Find the calculated P&L for this position
@@ -621,6 +635,11 @@ async function persistImport(
           discrepancyPercent: null,
         });
 
+        // Attribute fees from trades to this closed position
+        const symbolFees = feesBySymbol.get(position.symbol) ?? 0;
+        const symbolPositionCount = positionCountBySymbol.get(position.symbol) ?? 1;
+        const positionFees = symbolFees / symbolPositionCount;
+
         return {
           import_id: importId,
           platform: "robinhood" as Platform,
@@ -629,8 +648,8 @@ async function persistImport(
           exit_date: position.expDate ?? undefined,
           quantity: position.totalQuantity,
           gross_pnl: position.netPnl,
-          fees: 0, // Fees are on trades
-          net_pnl: position.netPnl,
+          fees: positionFees,
+          net_pnl: position.netPnl - positionFees,
           calculated_pnl: reconciliation.calculated_pnl,
           pnl_discrepancy: reconciliation.pnl_discrepancy,
         };

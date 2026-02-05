@@ -6,16 +6,17 @@ import { TileHeader } from "../tile-header";
 import { TileValue } from "../tile-value";
 
 interface TradingProfitTileProps {
-  /** Net trading profit (realized P&L minus fees) */
+  /** Total account performance (realized + unrealized, after fees) */
   value: number;
-  /** Gross profit before fees */
+  /** Gross P&L before fees (Section 5 source of truth) */
   grossProfit?: number;
   /** Whether data is loading */
   isLoading?: boolean;
 }
 
 /**
- * Trading Profit tile showing net profit after fees.
+ * Trading Profit tile showing total account performance
+ * (realized P&L + unrealized P&L, after fees).
  */
 export function TradingProfitTile({
   value,
@@ -27,7 +28,7 @@ export function TradingProfitTile({
       <Tile>
         <TileHeader
           title="Trading Profit"
-          tooltip="Net profit from trading after fees (Realized P&L - Fees)"
+          tooltip="Total account performance: Realized P&L + Unrealized P&L (after fees)"
           icon={<DollarSign className="h-4 w-4" />}
         />
         <div className="mt-2 h-8 w-28 animate-pulse rounded bg-muted" />
@@ -40,7 +41,7 @@ export function TradingProfitTile({
     <Tile>
       <TileHeader
         title="Trading Profit"
-        tooltip="Net profit from trading after fees (Realized P&L - Fees)"
+        tooltip="Total account performance: Realized P&L + Unrealized P&L (after fees)"
         icon={<DollarSign className="h-4 w-4" />}
       />
       <TileValue
