@@ -75,40 +75,39 @@
 ## 3. Trade Journal Components
 
 ### Data Table
-- [ ] 🔧 **TradeTable** - Main trade journal table
+- [x] 🔧 **TradeTable** - Main trade journal table
   - Props: `data`, `columns`, `filters`, `sorting`
   - Base: shadcn Table + TanStack Table v8
-  - Features: sorting, pagination, virtual scroll
+  - Features: sorting, pagination, sticky first column
 
-- [ ] ✅ **TableHeader** - Column headers with sort
+- [x] ✅ **TableHeader** - Column headers with sort
   - Use: shadcn TableHeader
 
-- [ ] ✅ **TableRow** - Table row
+- [x] ✅ **TableRow** - Table row
   - Use: shadcn TableRow
 
-- [ ] ✅ **TableCell** - Table cell
+- [x] ✅ **TableCell** - Table cell
   - Use: shadcn TableCell
 
-- [ ] ✅ **TablePagination** - Page navigation
+- [x] ✅ **TablePagination** - Page navigation (integrated into TradeTable)
   - Props: `page`, `pageSize`, `total`, `onChange`
-  - Base: shadcn Pagination
 
 ### Data Display
-- [ ] 🎨 **PnLBadge** - Profit/loss indicator
+- [x] 🎨 **PnLBadge** - Profit/loss indicator
   - Props: `value: number`
   - Variants: positive (green), negative (red), neutral
   - Shows: formatted currency with +/- sign
 
-- [ ] 🎨 **CategoryPill** - Category tag
+- [x] 🎨 **CategoryPill** - Category tag
   - Props: `category`, `onClick`
   - Variants: NFL, NBA, Economics, Tennis, Politics, Uncategorized
   - Each category has unique color
 
-- [ ] 🎨 **SideBadge** - YES/NO indicator
+- [x] 🎨 **SideBadge** - YES/NO indicator
   - Props: `side: "YES" | "NO"`
   - Variants: YES (profit color), NO (loss color)
 
-- [ ] 🎨 **StatusBadge** - Open/Closed status
+- [x] 🎨 **StatusBadge** - Open/Closed status
   - Props: `status: "OPEN" | "CLOSED"`
   - Variants: open, closed
 

@@ -276,6 +276,18 @@ export interface CreateOpenPositionInput {
 }
 
 // ============================================================================
+// ENRICHED TYPES (for UI views)
+// ============================================================================
+
+/**
+ * Trade row enriched with computed P&L and status for the trade journal
+ */
+export interface TradeJournalRow extends Trade {
+  pnl: number | null;
+  status: "OPEN" | "CLOSED";
+}
+
+// ============================================================================
 // FILTER TYPES
 // ============================================================================
 

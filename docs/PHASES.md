@@ -348,31 +348,35 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 10: Trade Journal Table
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create the trade journal with TanStack Table.
 
 **Acceptance Criteria:**
-- [ ] TanStack Table v8 configured
-- [ ] All columns defined (Date, Symbol, Side, Qty, Price, P&L, Fees, Category, Status)
-- [ ] Sorting on all sortable columns
-- [ ] Default sort by date DESC
-- [ ] Pagination (50 rows per page)
-- [ ] PnLBadge component (green/red)
-- [ ] CategoryPill component with colors
-- [ ] SideBadge (YES/NO)
-- [ ] StatusBadge (Open/Closed)
-- [ ] Horizontal scroll on mobile with sticky first column
+- [x] TanStack Table v8 configured
+- [x] All columns defined (Date, Symbol, Side, Qty, Price, P&L, Fees, Category, Status)
+- [x] Sorting on all sortable columns
+- [x] Default sort by date DESC
+- [x] Pagination (50 rows per page)
+- [x] PnLBadge component (green/red)
+- [x] CategoryPill component with colors
+- [x] SideBadge (YES/NO)
+- [x] StatusBadge (Open/Closed)
+- [x] Horizontal scroll on mobile with sticky first column
 
-**Files to Create/Modify:**
-- `src/components/trade-journal/trade-table.tsx`
-- `src/components/trade-journal/columns.tsx`
-- `src/components/trade-journal/pnl-badge.tsx`
-- `src/components/trade-journal/category-pill.tsx`
-- `src/components/trade-journal/side-badge.tsx`
-- `src/components/trade-journal/status-badge.tsx`
-- `src/hooks/use-trades-data.ts`
-- `src/app/(app)/trades/page.tsx`
+**Files Created/Modified:**
+- `src/components/trade-journal/trade-table.tsx` - Main TanStack Table component with sorting & pagination
+- `src/components/trade-journal/columns.tsx` - Column definitions with cell renderers
+- `src/components/trade-journal/pnl-badge.tsx` - P&L display with green/red color coding
+- `src/components/trade-journal/category-pill.tsx` - Category badge with per-category colors
+- `src/components/trade-journal/side-badge.tsx` - YES/NO side indicator
+- `src/components/trade-journal/status-badge.tsx` - Open/Closed status badge
+- `src/components/trade-journal/index.ts` - Barrel exports
+- `src/hooks/use-trades-data.ts` - TanStack Query hook for paginated/sorted trades
+- `src/hooks/index.ts` - Updated barrel export
+- `src/lib/db/queries/trades.ts` - Added getTradesForJournal query with computed P&L
+- `src/lib/db/types.ts` - Added TradeJournalRow type
+- `src/app/(app)/trades/page.tsx` - Updated with real data, loading/empty states
 
 **Demo:** View all trades in sortable, paginated table
 

@@ -7,6 +7,7 @@
 import { query, execute, getDatabase } from "../client";
 import type {
   Trade,
+  TradeJournalRow,
   CreateTradeInput,
   TradeFilter,
   PaginationOptions,
@@ -289,4 +290,120 @@ export async function getTradeCount(): Promise<number> {
     `SELECT COUNT(*) as count FROM trades`
   );
   return results[0]?.count ?? 0;
+}
+
+// ============================================================================
+// TRADE JOURNAL QUERIES (enriched with computed P&L and status)
+// ============================================================================
+
+/**
+ * SQL fragment for computing P&L from settlement_price
+ */
+const PNL_EXPRESSION = `
+  CASE
+    WHEN t.settlement_price IS NOT NULL THEN
+      CASE
+        WHEN t.side IN ('YES', 'LONG') THEN ROUND((t.settlement_price - t.price) * t.quantity, 2)
+        WHEN t.side IN ('NO', 'SHORT') THEN ROUND(((1.0 - t.settlement_price) - t.price) * t.quantity, 2)
+        ELSE NULL
+      END
+    ELSE NULL
+  END`;
+
+/**
+ * SQL fragment for deriving OPEN/CLOSED status
+ */
+const STATUS_EXPRESSION = `CASE WHEN t.settlement_date IS NOT NULL THEN 'CLOSED' ELSE 'OPEN' END`;
+
+/**
+ * Get trades for journal view with computed P&L and status.
+ * Supports filtering, pagination, and sorting including computed columns.
+ */
+export async function getTradesForJournal(
+  filter: TradeFilter,
+  pagination: PaginationOptions,
+  sort?: SortOptions
+): Promise<{ trades: TradeJournalRow[]; total: number }> {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  // Build WHERE conditions
+  if (filter.dateRange) {
+    conditions.push("t.trade_date BETWEEN ? AND ?");
+    params.push(filter.dateRange.start, filter.dateRange.end);
+  }
+
+  if (filter.categories && filter.categories.length > 0) {
+    const placeholders = filter.categories.map(() => "?").join(", ");
+    conditions.push(`t.category IN (${placeholders})`);
+    params.push(...filter.categories);
+  }
+
+  if (filter.symbols && filter.symbols.length > 0) {
+    const placeholders = filter.symbols.map(() => "?").join(", ");
+    conditions.push(`t.symbol IN (${placeholders})`);
+    params.push(...filter.symbols);
+  }
+
+  if (filter.sides && filter.sides.length > 0) {
+    const placeholders = filter.sides.map(() => "?").join(", ");
+    conditions.push(`t.side IN (${placeholders})`);
+    params.push(...filter.sides);
+  }
+
+  if (filter.importId) {
+    conditions.push("t.import_id = ?");
+    params.push(filter.importId);
+  }
+
+  // Status filter
+  if (filter.status === "OPEN") {
+    conditions.push("t.settlement_date IS NULL");
+  } else if (filter.status === "CLOSED") {
+    conditions.push("t.settlement_date IS NOT NULL");
+  }
+
+  const whereClause =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  // Sorting - whitelist including computed columns
+  const sortField = sort?.field ?? "trade_date";
+  const sortDir = sort?.direction ?? "desc";
+  const allowedFields: Record<string, string> = {
+    trade_date: "t.trade_date",
+    symbol: "t.symbol",
+    side: "t.side",
+    quantity: "t.quantity",
+    price: "t.price",
+    fees: "t.fees",
+    category: "t.category",
+    pnl: `(${PNL_EXPRESSION})`,
+    status: `(${STATUS_EXPRESSION})`,
+  };
+  const safeField = allowedFields[sortField] ?? "t.trade_date";
+  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
+
+  // Pagination
+  const offset = (pagination.page - 1) * pagination.pageSize;
+
+  const trades = await query<TradeJournalRow>(
+    `SELECT t.*,
+       ${PNL_EXPRESSION} as pnl,
+       ${STATUS_EXPRESSION} as status
+     FROM trades t
+     ${whereClause}
+     ORDER BY ${safeField} ${safeDir}
+     LIMIT ? OFFSET ?`,
+    [...params, pagination.pageSize, offset]
+  );
+
+  const countResult = await query<{ count: number }>(
+    `SELECT COUNT(*) as count FROM trades t ${whereClause}`,
+    params
+  );
+
+  return {
+    trades,
+    total: countResult[0]?.count ?? 0,
+  };
 }
