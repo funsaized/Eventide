@@ -206,7 +206,7 @@ When YES and NO quantities don't match, use FIFO matching in chronological order
 
 ```typescript
 // Sort all trades by date
-const allTrades = [...symbolTrades].sort((a, b) =>
+const sortedTrades = [...symbolTrades].sort((a, b) =>
   new Date(a.tradeDate).getTime() - new Date(b.tradeDate).getTime()
 );
 
@@ -214,24 +214,50 @@ const allTrades = [...symbolTrades].sort((a, b) =>
 let openYes = 0;
 let openNo = 0;
 
-for (const trade of allTrades) {
+for (const trade of sortedTrades) {
+  const quantity = getTradeQuantity(trade);
   const side = trade.subtype;
-  const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
-  const price = trade.tradePrice;
+  const price = trade.tradePrice ?? 0;
 
   if (side === "YES") {
     if (openNo > 0) {
       // This YES trade might be closing a NO position (sell NO = buy YES)
       const closeQty = Math.min(quantity, openNo);
       const closePrice = 1 - price;
-      entries.push({ side: "NO", type: "CLOSE", quantity: closeQty, price: closePrice });
-      openNo -= closeQty;
+      if (closeQty > 0) {
+        entries.push({ side: "NO", type: "CLOSE", quantity: closeQty, price: closePrice });
+        openNo -= closeQty;
+      }
+      // Remaining quantity opens new YES position
+      const openQty = quantity - closeQty;
+      if (openQty > 0) {
+        entries.push({ side: "YES", type: "OPEN", quantity: openQty, price });
+        openYes += openQty;
+      }
+    } else {
+      entries.push({ side: "YES", type: "OPEN", quantity, price });
+      openYes += quantity;
     }
-    // Remaining quantity opens YES
-    entries.push({ side: "YES", type: "OPEN", quantity: quantity - closeQty, price });
-    openYes += quantity - closeQty;
   } else {
-    // Mirror logic for NO trades
+    // NO trade
+    if (openYes > 0) {
+      // This NO trade might be closing a YES position (sell YES = buy NO)
+      const closeQty = Math.min(quantity, openYes);
+      const closePrice = 1 - price;
+      if (closeQty > 0) {
+        entries.push({ side: "YES", type: "CLOSE", quantity: closeQty, price: closePrice });
+        openYes -= closeQty;
+      }
+      // Remaining quantity opens new NO position
+      const openQty = quantity - closeQty;
+      if (openQty > 0) {
+        entries.push({ side: "NO", type: "OPEN", quantity: openQty, price });
+        openNo += openQty;
+      }
+    } else {
+      entries.push({ side: "NO", type: "OPEN", quantity, price });
+      openNo += quantity;
+    }
   }
 }
 ```
@@ -260,12 +286,18 @@ for (const trade of symbolTrades) {
 Settlements (tradeType = "Final Settlement") indicate contract resolution:
 
 ```typescript
+// Context tracks settlements to avoid duplicates
+const existingSettlements = new Set<string>();       // from statement data
+const generatedSyntheticSettlements = new Set<string>(); // synthetically created
+
 for (const trade of trades) {
   if (trade.tradeType !== "Final Settlement") continue;
 
   const quantity = trade.qtyLong > 0 ? trade.qtyLong : trade.qtyShort;
   const statementSide = trade.subtype;
   const statementPrice = trade.tradePrice;
+  const oppositeSide = statementSide === "YES" ? "NO" : "YES";
+  const oppositePrice = 1 - statementPrice;
 
   // Add settlement for the statement side
   entries.push({
@@ -277,17 +309,19 @@ for (const trade of trades) {
     quantity,
   });
 
-  // Generate opposite side settlement (if not already present)
-  const oppositeKey = `${trade.symbol}|${statementSide === "YES" ? "NO" : "YES"}`;
-  if (!existingSettlements.has(oppositeKey)) {
+  // Generate opposite side settlement if not already present
+  // Track both existing settlements from the statement AND synthetically generated ones
+  const oppositeKey = `${trade.symbol}|${oppositeSide}`;
+  if (!existingSettlements.has(oppositeKey) && !generatedSyntheticSettlements.has(oppositeKey)) {
     entries.push({
       symbol: trade.symbol,
-      side: statementSide === "YES" ? "NO" : "YES",
+      side: oppositeSide,
       type: "SETTLE",
-      price: 1 - statementPrice,
-      settlementPrice: 1 - statementPrice,
+      price: oppositePrice,
+      settlementPrice: oppositePrice,
       quantity,
     });
+    generatedSyntheticSettlements.add(oppositeKey);
   }
 }
 ```
@@ -320,7 +354,31 @@ function findOpposingTeamSymbol(symbol: string, allSymbols: Set<string>): string
 }
 ```
 
-When a settlement is found for one team, generate synthetic settlements for the opposing team.
+When a settlement is found for one team, generate synthetic settlements for both YES and NO sides of the opposing team symbol:
+
+```typescript
+const opposingSymbol = findOpposingTeamSymbol(trade.symbol, allSymbols);
+if (opposingSymbol && !settlementsBySymbol.has(opposingSymbol)) {
+  // Derive opposing team prices from the original settlement
+  const opposingYesPrice = statementSide === "NO" ? statementPrice : oppositePrice;
+  const opposingNoPrice = 1 - opposingYesPrice;
+
+  const opposingYesKey = `${opposingSymbol}|YES`;
+  const opposingNoKey = `${opposingSymbol}|NO`;
+
+  if (!generatedSyntheticSettlements.has(opposingYesKey)) {
+    entries.push({ symbol: opposingSymbol, side: "YES", type: "SETTLE",
+      price: opposingYesPrice, settlementPrice: opposingYesPrice, quantity });
+    generatedSyntheticSettlements.add(opposingYesKey);
+  }
+
+  if (!generatedSyntheticSettlements.has(opposingNoKey)) {
+    entries.push({ symbol: opposingSymbol, side: "NO", type: "SETTLE",
+      price: opposingNoPrice, settlementPrice: opposingNoPrice, quantity });
+    generatedSyntheticSettlements.add(opposingNoKey);
+  }
+}
+```
 
 ---
 
@@ -546,42 +604,59 @@ Section 3 provides fee summaries aggregated by symbol + date:
 
 ```typescript
 interface TradeConfirmationSummary {
-  tradeDate: string;
-  symbol: string;
+  tradeDate: string;           // ISO format YYYY-MM-DD
+  accountType: string;         // "SW" = Swaps/Event Contracts
+  totalQtyLong: number;        // Total quantity of long contracts
+  totalQtyShort: number;       // Total quantity of short contracts
   subtype: "YES" | "NO";
-  totalQty: number;
+  symbol: string;
+  exchange: string;            // "Kalshi"
+  expDate: string | null;      // Settlement date
   commissions: number;
   exchangeFees: number;
   nfaFees: number;
-  totalFees: number;
+  totalFees: number;           // commissions + exchangeFees + nfaFees
+  currency: string;            // "USD"
+  description: string;         // Human-readable event name
+  rawText?: string;            // Raw row text for debugging
 }
 ```
 
 ### 10.2 Attribution Strategy
 
-Fees are distributed proportionally by quantity:
+Fees are attributed to individual trades by matching on `symbol + tradeDate` (not side):
 
 ```typescript
-function attributeFees(
-  trades: TradeEntry[],
+// Group summaries by symbol and date for fee attribution
+function groupBySymbolAndDate(
   summaries: TradeConfirmationSummary[]
-): FeeAttributionResult {
-  // Group trades and summaries by symbol + date + side
-  const tradeGroups = new Map<string, TradeEntry[]>();
-  const summaryGroups = new Map<string, TradeConfirmationSummary[]>();
+): Map<string, TradeConfirmationSummary[]> {
+  const groups = new Map<string, TradeConfirmationSummary[]>();
 
-  // For each summary group, distribute fees to matching trades
-  for (const [key, groupSummaries] of summaryGroups) {
-    const matchingTrades = tradeGroups.get(key) ?? [];
-    const totalQuantity = matchingTrades.reduce((sum, t) => sum + t.quantity, 0);
-    const totalFees = groupSummaries.reduce((sum, s) => sum + s.totalFees, 0);
-
-    for (const trade of matchingTrades) {
-      trade.fees = totalFees * (trade.quantity / totalQuantity);
-    }
+  for (const summary of summaries) {
+    const key = `${summary.symbol}|${summary.tradeDate}`;
+    const existing = groups.get(key) ?? [];
+    existing.push(summary);
+    groups.set(key, existing);
   }
+
+  return groups;
+}
+
+// Get total fees for a symbol on a specific date
+function getFeesForSymbolDate(
+  summaries: TradeConfirmationSummary[],
+  symbol: string,
+  date: string
+): number {
+  const matching = summaries.filter(
+    (s) => s.symbol === symbol && s.tradeDate === date
+  );
+  return matching.reduce((sum, s) => sum + s.totalFees, 0);
 }
 ```
+
+**Fee validation**: Section 3 total fees are cross-checked against Section 10's `totalCommissionsAndFees` field. A discrepancy >$1.00 generates a warning.
 
 ---
 
@@ -600,34 +675,70 @@ Examples:
 
 ### 11.2 Category Patterns
 
+The `MarketCategory` type defines 13 categories:
+
 ```typescript
-const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: string }> = [
-  // Sports - Football
-  { pattern: /^KXNFLGAME/i, category: "NFL" },
-  { pattern: /^KXNCAAFGAME/i, category: "College Football" },
+type MarketCategory =
+  | "NFL" | "NBA" | "MLB" | "NHL"
+  | "Soccer" | "Tennis" | "Golf"
+  | "Economics" | "Politics" | "Weather"
+  | "Entertainment" | "Crypto" | "Other";
+```
 
-  // Sports - Other
-  { pattern: /^KXNBAGAME/i, category: "NBA" },
-  { pattern: /^KXMLB/i, category: "MLB" },
-  { pattern: /^KXEPL/i, category: "Soccer" },
-  { pattern: /^KXPGA/i, category: "Golf" },
-  { pattern: /^KXUSO(MEN|WOMEN)/i, category: "Tennis" },
+Patterns are ordered by specificity (most specific first). Each uses broad matching to cover game, player prop, and playoff variants:
 
-  // Economics
-  { pattern: /^KXFEDDECISION/i, category: "Fed Decision" },
-  { pattern: /^KXCPI/i, category: "CPI" },
-  { pattern: /^KXGDP/i, category: "GDP" },
-  { pattern: /^KXJOBLESS/i, category: "Jobs" },
+```typescript
+const CATEGORY_PATTERNS: CategoryPattern[] = [
+  // Sports - American Football
+  { pattern: /^KX.*NFL(?:GAME|PLAYER|PROP)?/i, category: "NFL" },
+  { pattern: /^KX.*(?:SUPERBOWL|SB[0-9]+)/i, category: "NFL" },
+  { pattern: /^KX.*NCAA[AF]?(?:GAME|FB)?/i, category: "Other" },   // College Football → "Other"
+  { pattern: /^KX.*CFBGAME/i, category: "Other" },
 
-  // Crypto
-  { pattern: /^KXBTC/i, category: "Bitcoin" },
-  { pattern: /^KXETH/i, category: "Ethereum" },
+  // Sports - Basketball
+  { pattern: /^KX.*NBA(?:GAME|PLAYER|PROP)?/i, category: "NBA" },
+  { pattern: /^KX.*(?:NBAALLSTAR|NBAFINALS)/i, category: "NBA" },
+  { pattern: /^KX.*NCAAB(?:GAME)?/i, category: "Other" },          // College Basketball → "Other"
 
-  // Politics
-  { pattern: /^KXELECTION/i, category: "Elections" },
-  { pattern: /^KXPRESIDENT/i, category: "Presidential" },
+  // Sports - Baseball & Hockey
+  { pattern: /^KX.*MLB(?:GAME|PLAYER)?/i, category: "MLB" },
+  { pattern: /^KX.*(?:WORLDSERIES|MLBPLAYOFF)/i, category: "MLB" },
+  { pattern: /^KX.*NHL(?:GAME|PLAYER)?/i, category: "NHL" },
+  { pattern: /^KX.*STANLEYCUP/i, category: "NHL" },
+
+  // Sports - Soccer, Tennis, Golf
+  { pattern: /^KX.*(?:SOCCER|MLS|UEFA|FIFA|EPL|LALIGA|BUNDESLIGA|SERIEA|LIGUE1)/i, category: "Soccer" },
+  { pattern: /^KX.*(?:USO(?:MEN|WOMEN)|USOPEN)/i, category: "Tennis" },
+  { pattern: /^KX.*(?:WIMBLEDON|FRENCHOPEN|AUSOPEN|TENNIS)/i, category: "Tennis" },
+  { pattern: /^KX.*(?:GOLF|PGA|MASTERS|USOPEN|THEOPEN|PGACHAMP)/i, category: "Golf" },
+
+  // Sports - Other (Combat, Motorsports, Olympics)
+  { pattern: /^KX.*(?:UFC|MMA|BOXING|FIGHT)/i, category: "Other" },
+  { pattern: /^KX.*(?:NASCAR|F1|INDY|RACING)/i, category: "Other" },
+  { pattern: /^KX.*(?:OLYMPICS|TRACK|SWIM)/i, category: "Other" },
+
+  // Economics (all subcategories map to "Economics")
+  { pattern: /^KX.*(?:FED|FOMC|FEDRATE|FEDDECISION)/i, category: "Economics" },
+  { pattern: /^KX.*(?:CPI|INFLATION|PCE)/i, category: "Economics" },
+  { pattern: /^KX.*(?:GDP|GROWTH)/i, category: "Economics" },
+  { pattern: /^KX.*(?:JOBS|JOBLESS|UNEMPLOYMENT|NONFARM|NFP|PAYROLL)/i, category: "Economics" },
+  { pattern: /^KX.*(?:RETAIL|HOUSING|ISM|PMI|TRADE)/i, category: "Economics" },
+
+  // Politics (all subcategories map to "Politics")
+  { pattern: /^KX.*(?:ELECTION|PRESIDENT|POTUS|PRES[0-9]+)/i, category: "Politics" },
+  { pattern: /^KX.*(?:CONGRESS|SENATE|HOUSE|GOV)/i, category: "Politics" },
+  { pattern: /^KX.*(?:PRIMARY|CAUCUS|VOTE)/i, category: "Politics" },
+  { pattern: /^KX.*(?:IMPEACH|SCOTUS|SUPREME)/i, category: "Politics" },
+
+  // Weather, Crypto, Entertainment
+  { pattern: /^KX.*(?:WEATHER|TEMP|TEMPERATURE|HURRICANE|STORM)/i, category: "Weather" },
+  { pattern: /^KX.*(?:BTC|BITCOIN|ETH|ETHEREUM|CRYPTO)/i, category: "Crypto" },
+  { pattern: /^KX.*(?:OSCAR|EMMY|GRAMMY|AWARD)/i, category: "Entertainment" },
+  { pattern: /^KX.*(?:MOVIE|BOXOFFICE|TV|STREAMING)/i, category: "Entertainment" },
 ];
 ```
+
+**Note**: Unmatched symbols default to `"Other"`. College sports (NCAA football, NCAA basketball, March Madness) also map to `"Other"`, not their own categories.
 
 ---
 
@@ -635,49 +746,97 @@ const CATEGORY_PATTERNS: Array<{ pattern: RegExp; category: string }> = [
 
 ### 12.1 Pipeline Overview
 
-```typescript
-async function importStatement(pdfFile: File): Promise<ImportResult> {
-  // Phase 1: Extract PDF text with positions
-  const document = await loadPDFFromFile(pdfFile);
+The pipeline has two entry points: `importStatement()` for the full import (with persistence), and `parseDocument()` for parsing-only (used in validation/preview).
 
-  // Phase 2: Detect section boundaries
+```typescript
+// Main entry point for imports
+async function importStatement(
+  file: File,
+  options: ImportOptions = {},
+  onProgress?: ProgressCallback
+): Promise<ImportResult> {
+  // Phase 1: Extract PDF text with positions
+  const document = await loadPDFFromFile(file, { password: options.password });
+
+  // Phase 2: Parse and calculate (delegates to parseDocument)
+  const parsedData = await parseDocument(document, options.verbose);
+
+  // Phase 3: Check for duplicate statement (same account + date)
+  if (!options.skipDuplicateCheck) {
+    const existing = await checkDuplicateImport(
+      "robinhood", parsedData.accountNumber, parsedData.statementDate
+    );
+    if (existing) return { success: false, error: "Duplicate statement detected", ... };
+  }
+
+  // Phase 4: Check if import should be blocked based on P&L validation
+  const blockDecision = shouldBlockImport(parsedData.pnlValidation, options.strictMode);
+  if (blockDecision.block) return { success: false, error: blockDecision.reason, ... };
+
+  // Phase 5: Persist to database in a transaction
+  const importId = await persistImport(parsedData);
+
+  return { success: true, importId, ... };
+}
+
+// Parsing-only entry point (no persistence)
+async function parseDocument(
+  document: ExtractedDocument,
+  verbose = false
+): Promise<ParsedImportData> {
+  const pageWidth = document.pages[0]?.width ?? 612;
+
+  // Step 1: Detect section boundaries
   const boundaries = detectSectionBoundaries(document);
   validateRequiredSections(boundaries);
 
-  // Phase 3: Parse each section
+  // Step 2: Extract account metadata from Section 1 (header)
+  const metadata = extractStatementMetadata(headerItems);
+
+  // Step 3: Parse all sections
   const section2 = parseSection2(getSection(boundaries, "section2"), pageWidth);
-  const section3 = parseSection3(getSection(boundaries, "section3"), pageWidth);
-  const section4 = parseSection4(getSection(boundaries, "section4"), pageWidth);
+  const section3 = parseSection3(getSection(boundaries, "section3"), pageWidth);  // optional
+  const section4 = parseSection4(getSection(boundaries, "section4"), pageWidth, periodStart, periodEnd);
   const section5 = parseSection5(getSection(boundaries, "section5"), pageWidth);
   const section6 = parseSection6(getSection(boundaries, "section6"), pageWidth);
-  const section7 = parseSection7(getSection(boundaries, "section7"), pageWidth);
+  const section7 = parseSection7(getSection(boundaries, "section7"), pageWidth);  // optional
   const section10 = parseSection10(getSection(boundaries, "section10"), pageWidth);
 
-  // Phase 4: Merge trades with deduplication
+  // Step 4: Merge trades with deduplication (Section 2 + Section 4)
   const mergedTrades = mergeTradesWithDeduplication(section2.trades, section4.trades);
 
-  // Phase 5: Convert to FIFO entries (with sell-as-buy-opposite logic)
+  // Step 5: Convert to FIFO entries (with sell-as-buy-opposite logic)
   const tradeEntries = convertAllTradesToEntries(mergedTrades.mergedTrades);
 
-  // Phase 6: Attribute fees from Section 3
+  // Step 6: Attribute fees from Section 3
   const feeAttribution = attributeFees(tradeEntries, section3.summaries);
 
-  // Phase 7: Calculate FIFO P&L
+  // Step 7: Cross-check Section 3 fees against Section 10 total
+  if (Math.abs(section3TotalFees - section10TotalFees) > 1.0) { /* warn */ }
+
+  // Step 8: Calculate FIFO P&L
   const fifoResults = calculateAllPositions(feeAttribution.trades);
 
-  // Phase 8: Validate against Section 5
+  // Step 9: Validate against Section 5 (source of truth)
   const pnlValidation = validatePnlAgainstSection5(fifoResults, section5.pairedPositions);
 
-  // Phase 9: Check if import should be blocked
-  if (shouldBlockImport(pnlValidation, strictMode)) {
-    throw new Error("P&L validation failed");
-  }
-
-  // Phase 10: Persist to database
-  await persistImport(parsedData);
-
-  return { success: true, ... };
+  return { accountNumber, statementDate, periodStart, periodEnd,
+    accountSummary, tradesWithFees, pairedPositions, journalEntries,
+    openPositions, feeSummaries, fifoResults, pnlValidation, feeAttribution, warnings };
 }
+```
+
+**Import Phases** (reported via `ProgressCallback`):
+```typescript
+type ImportPhase =
+  | "EXTRACTING"         // PDF text extraction
+  | "DETECTING_SECTIONS" // Section boundary detection
+  | "PARSING_SECTIONS"   // All section parsing
+  | "CALCULATING_PNL"    // FIFO P&L calculation
+  | "VALIDATING"         // P&L validation against Section 5
+  | "PERSISTING"         // Database transaction
+  | "COMPLETE"           // Success
+  | "FAILED";            // Error
 ```
 
 ### 12.2 Error Handling
@@ -756,12 +915,19 @@ function parseTradePrice(value: string): number | null {
 Tables can span multiple pages with repeated headers:
 
 ```typescript
-function isRepeatedHeader(rowText: string, expectedColumns: ColumnConfig[]): boolean {
-  const keywords = expectedColumns.map(c => c.keywords).flat();
-  const matchCount = keywords.filter(kw =>
-    rowText.toLowerCase().includes(kw.toLowerCase())
-  ).length;
-  return matchCount >= 3; // At least 3 header keywords found
+function isRepeatedHeader(rowText: string, columnConfigs: ColumnConfig[]): boolean {
+  const lowerText = rowText.toLowerCase();
+
+  // Count column header matches using regex patterns
+  let headerMatchCount = 0;
+  for (const config of columnConfigs) {
+    if (config.headerPatterns.some(p => p.test(lowerText))) {
+      headerMatchCount++;
+    }
+  }
+
+  // If 3+ headers found, this is likely a repeated header row
+  return headerMatchCount >= 3;
 }
 ```
 
