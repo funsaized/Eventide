@@ -3,11 +3,13 @@
 import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TradeTable } from "@/components/trade-journal/trade-table";
+import { FilterBar } from "@/components/trade-journal/filters";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { TableSkeleton } from "@/components/feedback/skeleton-loaders";
-import { useTradesData } from "@/hooks/use-trades-data";
+import { useTradesData, useCategories } from "@/hooks/use-trades-data";
 import { useHasData } from "@/hooks/use-dashboard-data";
 import { useFilterStore } from "@/lib/state/stores";
+import { exportTradesToCSV } from "@/lib/utils/csv-export";
 import type { SortingState } from "@tanstack/react-table";
 
 export default function TradesPage() {
@@ -23,6 +25,7 @@ export default function TradesPage() {
   const addCategory = useFilterStore((s) => s.addCategory);
 
   const { data, isLoading, isError } = useTradesData(sorting);
+  const categoriesQuery = useCategories();
 
   const handleCategoryClick = useCallback(
     (category: string) => {
@@ -31,15 +34,19 @@ export default function TradesPage() {
     [addCategory]
   );
 
+  const handleExport = useCallback(() => {
+    if (data?.trades && data.trades.length > 0) {
+      exportTradesToCSV(data.trades);
+    }
+  }, [data?.trades]);
+
   // Loading state
   if (isLoading || hasDataQuery.isLoading) {
     return (
       <div className="space-y-6">
         <Card>
-          <CardContent className="flex items-center gap-4 py-4">
-            <div className="text-sm text-muted-foreground">
-              Filters will be implemented in Phase 11
-            </div>
+          <CardContent className="py-4">
+            <div className="h-8 w-48 animate-pulse rounded bg-muted" />
           </CardContent>
         </Card>
         <Card>
@@ -87,22 +94,27 @@ export default function TradesPage() {
 
   const trades = data?.trades ?? [];
   const total = data?.total ?? 0;
+  const categories = categoriesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
-      {/* Filter bar placeholder */}
+      {/* Filter bar */}
       <Card>
-        <CardContent className="flex items-center gap-4 py-4">
-          <div className="text-sm text-muted-foreground">
-            Filters will be implemented in Phase 11
-          </div>
+        <CardContent className="py-4">
+          <FilterBar
+            categories={categories}
+            onExport={handleExport}
+            canExport={trades.length > 0}
+          />
         </CardContent>
       </Card>
 
       {/* Trade table */}
       <Card>
         <CardHeader>
-          <CardTitle>All Trades</CardTitle>
+          <CardTitle>
+            {total > 0 ? `Trades (${total})` : "All Trades"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <TradeTable

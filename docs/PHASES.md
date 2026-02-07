@@ -383,30 +383,35 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 11: Trade Journal Filters
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Add filtering capabilities to the trade journal.
 
 **Acceptance Criteria:**
-- [ ] FilterBar component
-- [ ] DateRangeFilter with calendar picker
-- [ ] CategoryFilter multi-select
-- [ ] PnLRangeFilter with slider
-- [ ] Status filter (All/Open/Closed)
-- [ ] FilterChip showing active filters
-- [ ] Clear all filters button
-- [ ] Filters persist in Zustand (and localStorage)
-- [ ] Mobile: filters in Sheet drawer
-- [ ] Export to CSV button
+- [x] FilterBar component
+- [x] DateRangeFilter with calendar picker
+- [x] CategoryFilter multi-select
+- [x] PnLRangeFilter with min/max inputs
+- [x] Status filter (All/Open/Closed)
+- [x] FilterChip showing active filters
+- [x] Clear all filters button
+- [x] Filters persist in Zustand (and localStorage)
+- [x] Mobile: filters in Sheet drawer
+- [x] Export to CSV button
 
-**Files to Create/Modify:**
-- `src/components/trade-journal/filters/filter-bar.tsx`
-- `src/components/trade-journal/filters/date-range-filter.tsx`
-- `src/components/trade-journal/filters/category-filter.tsx`
-- `src/components/trade-journal/filters/pnl-range-filter.tsx`
-- `src/components/trade-journal/filters/filter-chip.tsx`
-- `src/lib/state/filter-store.ts`
-- `src/lib/utils/csv-export.ts`
+**Files Created/Modified:**
+- `src/components/trade-journal/filters/filter-bar.tsx` - Main filter bar with desktop/mobile layouts
+- `src/components/trade-journal/filters/date-range-filter.tsx` - Calendar-based date range picker
+- `src/components/trade-journal/filters/category-filter.tsx` - Multi-select category dropdown
+- `src/components/trade-journal/filters/pnl-range-filter.tsx` - P&L range input filter
+- `src/components/trade-journal/filters/filter-chip.tsx` - Active filter chip with remove
+- `src/components/trade-journal/filters/index.ts` - Barrel export
+- `src/components/trade-journal/index.ts` - Updated barrel export
+- `src/components/ui/calendar.tsx` - shadcn calendar component (installed)
+- `src/lib/db/queries/trades.ts` - Added P&L range filtering to getTradesForJournal
+- `src/lib/utils/csv-export.ts` - CSV export utility
+- `src/hooks/use-trades-data.ts` - Added useCategories hook
+- `src/app/(app)/trades/page.tsx` - Integrated FilterBar, CSV export
 
 **Demo:** Filter trades by date, category, P&L; export filtered results to CSV
 

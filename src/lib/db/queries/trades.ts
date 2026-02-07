@@ -363,6 +363,17 @@ export async function getTradesForJournal(
     conditions.push("t.settlement_date IS NOT NULL");
   }
 
+  // P&L range filter (uses computed expression)
+  if (filter.minPnl != null) {
+    conditions.push(`(${PNL_EXPRESSION}) >= ?`);
+    params.push(filter.minPnl);
+  }
+
+  if (filter.maxPnl != null) {
+    conditions.push(`(${PNL_EXPRESSION}) <= ?`);
+    params.push(filter.maxPnl);
+  }
+
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
