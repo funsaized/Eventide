@@ -2,6 +2,7 @@
 
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
+import { useDemoInit } from "@/hooks/use-demo-mode";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -9,6 +10,8 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, title }: AppShellProps) {
+  // Initialize demo mode on first visit (seeds data if DB is empty)
+  useDemoInit();
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar */}

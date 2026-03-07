@@ -451,27 +451,32 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 13: Demo Mode
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create demo mode with curated sample data for onboarding.
 
 **Acceptance Criteria:**
-- [ ] 50 curated demo trades covering key scenarios
-- [ ] Demo covers: NFL profits, Economics losses, Tennis break-even, Politics big win, fee drag
-- [ ] Demo data generates realistic P&L distribution
-- [ ] Demo database loads on first visit (no real data)
-- [ ] "Try with your data" CTA in demo mode
-- [ ] Confirmation modal when uploading first real statement
-- [ ] Demo data wiped on first real import
-- [ ] Demo indicator badge in UI
+- [x] 50 curated demo trades covering key scenarios
+- [x] Demo covers: NFL profits, Economics losses, Tennis break-even, Politics big win, fee drag
+- [x] Demo data generates realistic P&L distribution
+- [x] Demo database loads on first visit (no real data)
+- [x] "Try with your data" CTA in demo mode
+- [x] Confirmation modal when uploading first real statement
+- [x] Demo data wiped on first real import
+- [x] Demo indicator badge in UI
 
-**Files to Create/Modify:**
-- `src/lib/demo/demo-data.ts` - Curated trade data
-- `src/lib/demo/generate-demo-db.ts`
-- `src/lib/state/demo-store.ts`
-- `src/components/feedback/demo-badge.tsx`
-- `src/features/demo/demo-transition-modal.tsx`
-- Update upload flow to handle demo → real transition
+**Files Created/Modified:**
+- `src/lib/demo/demo-data.ts` - 50 curated trades with P&L calculation helpers
+- `src/lib/demo/generate-demo-db.ts` - Database seeding/wiping for demo data
+- `src/components/feedback/demo-badge.tsx` - Demo indicator with "Try with your data" CTA
+- `src/features/demo/demo-transition-modal.tsx` - Confirmation modal for demo→real transition
+- `src/features/demo/index.ts` - Barrel export
+- `src/hooks/use-demo-mode.ts` - useDemoInit and useDemoTransition hooks
+- `src/components/layout/app-shell.tsx` - Added useDemoInit() call
+- `src/components/layout/top-bar.tsx` - Added DemoBadge
+- `src/features/imports/upload-flow.tsx` - Integrated demo transition check
+- `src/hooks/use-import-statement.ts` - Added analytics query invalidation
+- `tests/unit/demo/demo-data.test.ts` - 20 tests for demo data integrity
 
 **Demo:** Fresh visit shows demo data; upload real statement replaces demo
 

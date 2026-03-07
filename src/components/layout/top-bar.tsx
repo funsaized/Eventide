@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DemoBadge } from "@/components/feedback/demo-badge";
 import { MobileSidebar } from "./sidebar";
 
 interface TopBarProps {
@@ -17,6 +18,9 @@ export function TopBar({ title }: TopBarProps) {
 
       {/* Page title */}
       <h1 className="flex-1 text-lg font-semibold tracking-tight">{title}</h1>
+
+      {/* Demo indicator */}
+      <DemoBadge />
 
       {/* Actions */}
       <div className="flex items-center gap-2">

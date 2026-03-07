@@ -2,6 +2,8 @@
  * Feedback Components Barrel Export
  */
 
+export { DemoBadge } from "./demo-badge";
+
 export { EmptyState } from "./empty-state";
 export type { EmptyStateProps, EmptyStateVariant } from "./empty-state";
 

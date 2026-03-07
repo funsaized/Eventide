@@ -69,6 +69,7 @@ export function useImportStatement(options?: {
         queryClient.invalidateQueries({ queryKey: queryKeys.cashFlows.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
         queryClient.invalidateQueries({ queryKey: queryKeys.database.hasData });
+        queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all });
       }
 
       options?.onSuccess?.(result);

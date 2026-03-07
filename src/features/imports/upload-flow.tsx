@@ -23,6 +23,8 @@ import {
 } from "@/components/upload";
 import { useToast } from "@/hooks/use-toast";
 import { useImportStatement } from "@/hooks/use-import-statement";
+import { useDemoTransition } from "@/hooks/use-demo-mode";
+import { DemoTransitionModal } from "@/features/demo";
 import { loadPDFFromFile } from "@/lib/parsing/pdf-loader";
 import { parseDocument } from "@/lib/parsing/import-pipeline";
 import { getTotalPnl } from "@/lib/calculations/fifo";
@@ -40,6 +42,12 @@ type FlowState =
 export function UploadFlow() {
   const router = useRouter();
   const { toast } = useToast();
+  const {
+    showModal: showDemoModal,
+    checkDemoTransition,
+    confirmTransition,
+    cancelTransition,
+  } = useDemoTransition();
 
   // Flow state
   const [state, setState] = useState<FlowState>("IDLE");
@@ -108,9 +116,9 @@ export function UploadFlow() {
   });
 
   /**
-   * Handle file selection
+   * Start parsing a file (called after demo transition check)
    */
-  const handleFileSelect = useCallback(async (file: File) => {
+  const startParsing = useCallback(async (file: File) => {
     setSelectedFile(file);
     setState("PARSING");
     setError(null);
@@ -180,6 +188,16 @@ export function UploadFlow() {
       setState("ERROR");
     }
   }, []);
+
+  /**
+   * Handle file selection — checks demo mode first
+   */
+  const handleFileSelect = useCallback(
+    (file: File) => {
+      checkDemoTransition(file, startParsing);
+    },
+    [checkDemoTransition, startParsing]
+  );
 
   /**
    * Handle import confirmation
@@ -304,6 +322,13 @@ export function UploadFlow() {
           setShowValidationWarning(false);
           handleImport();
         }}
+      />
+
+      {/* Demo Transition Modal */}
+      <DemoTransitionModal
+        open={showDemoModal}
+        onCancel={cancelTransition}
+        onConfirm={() => confirmTransition(startParsing)}
       />
     </div>
   );
