@@ -483,33 +483,36 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 14: Settings & Polish
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create settings page and polish edge cases.
 
 **Acceptance Criteria:**
-- [ ] Settings page layout
-- [ ] Default view selector (Dashboard/Trades/Analytics)
-- [ ] Database export button (download SQLite file)
-- [ ] Storage indicator showing OPFS usage
-- [ ] Delete all data button with confirmation
-- [ ] Import history list with delete per import
-- [ ] BrowserBlocker for non-Chromium
-- [ ] StorageWarning when >80% full
-- [ ] App version in footer
+- [x] Settings page layout
+- [x] Default view selector (Dashboard/Trades/Analytics)
+- [x] Database export button (download SQLite file)
+- [x] Storage indicator showing OPFS usage
+- [x] Delete all data button with confirmation
+- [x] Import history list with delete per import
+- [x] BrowserBlocker for non-Chromium
+- [x] StorageWarning when >80% full
+- [x] App version in footer
 
-**Files to Create/Modify:**
-- `src/components/settings/settings-section.tsx`
-- `src/components/settings/default-view-selector.tsx`
-- `src/components/settings/export-button.tsx`
-- `src/components/settings/storage-indicator.tsx`
-- `src/components/settings/import-history.tsx`
-- `src/components/browser/browser-blocker.tsx`
-- `src/components/browser/storage-warning.tsx`
-- `src/features/settings/settings-view.tsx`
-- `src/app/(app)/settings/page.tsx`
-- `src/lib/db/mutations/export.ts`
-- `src/lib/db/mutations/delete.ts`
+**Files Created/Modified:**
+- `src/components/settings/settings-section.tsx` - Reusable settings card with danger variant
+- `src/components/settings/default-view-selector.tsx` - Zustand-backed view selector
+- `src/components/settings/export-button.tsx` - SQLite database download
+- `src/components/settings/storage-indicator.tsx` - Storage API usage indicator
+- `src/components/settings/import-history.tsx` - Import list with per-import delete
+- `src/components/settings/index.ts` - Barrel export
+- `src/components/browser/storage-warning.tsx` - Alert when storage >80% full
+- `src/components/browser/index.ts` - Updated barrel export
+- `src/features/settings/settings-view.tsx` - Settings page orchestration
+- `src/features/settings/index.ts` - Barrel export
+- `src/hooks/use-settings-data.ts` - Import history, delete import, delete all hooks
+- `src/hooks/index.ts` - Updated barrel export
+- `src/components/layout/app-shell.tsx` - Added StorageWarning
+- `src/app/(app)/settings/page.tsx` - Updated with SettingsView
 
 **Demo:** Export database, view storage usage, delete imports
 
