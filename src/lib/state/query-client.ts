@@ -96,6 +96,14 @@ export const queryKeys = {
     fees: () => [...queryKeys.dashboard.all, "fees"] as const,
   },
 
+  // Analytics
+  analytics: {
+    all: ["analytics"] as const,
+    categoryPerformance: () => [...queryKeys.analytics.all, "categoryPerformance"] as const,
+    volumeDistribution: () => [...queryKeys.analytics.all, "volumeDistribution"] as const,
+    feeAnalysis: () => [...queryKeys.analytics.all, "feeAnalysis"] as const,
+  },
+
   // Database health
   database: {
     health: ["database", "health"] as const,

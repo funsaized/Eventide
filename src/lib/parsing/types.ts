@@ -363,6 +363,8 @@ export type MarketCategory =
   | "NBA"
   | "MLB"
   | "NHL"
+  | "NCAAF"
+  | "NCAAB"
   | "Soccer"
   | "Tennis"
   | "Golf"

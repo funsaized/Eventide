@@ -249,6 +249,34 @@ export async function getCategoryPerformanceChart(): Promise<
 }
 
 // ============================================================================
+// VOLUME DISTRIBUTION
+// ============================================================================
+
+/**
+ * Get volume distribution by category (for treemap)
+ * Volume = SUM(quantity * price) for all trades in that category
+ */
+export async function getVolumeByCategory(): Promise<
+  { category: string; volume: number; pnl: number }[]
+> {
+  const results = await query<{
+    category: string;
+    volume: number;
+    pnl: number;
+  }>(
+    `SELECT
+      COALESCE(t.category, 'Uncategorized') as category,
+      SUM(ABS(t.quantity * t.price)) as volume,
+      COALESCE(cp.net_pnl, 0) as pnl
+     FROM trades t
+     LEFT JOIN category_performance cp ON COALESCE(t.category, 'Uncategorized') = cp.category
+     GROUP BY COALESCE(t.category, 'Uncategorized')
+     ORDER BY volume DESC`
+  );
+  return results;
+}
+
+// ============================================================================
 // FEE ANALYSIS
 // ============================================================================
 
@@ -268,6 +296,20 @@ export async function getMonthlyFees(): Promise<
      ORDER BY month ASC`
   );
   return results;
+}
+
+/**
+ * Get monthly fees with cumulative total (for fee analysis chart)
+ */
+export async function getMonthlyFeesWithCumulative(): Promise<
+  { month: string; fees: number; cumulative: number }[]
+> {
+  const monthly = await getMonthlyFees();
+  let cumulative = 0;
+  return monthly.map((m) => {
+    cumulative += m.fees;
+    return { ...m, cumulative };
+  });
 }
 
 /**

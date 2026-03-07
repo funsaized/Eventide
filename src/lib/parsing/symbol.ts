@@ -27,207 +27,278 @@ interface CategoryPattern {
 /**
  * Comprehensive category patterns covering 15+ market types
  * Ordered by specificity (more specific patterns first)
+ *
+ * Symbols may come in multiple formats:
+ * - Kalshi exchange prefix: "KX" followed by market type (KXNFLGAME-...)
+ * - Robinhood/ForecastEx direct: market type directly (NFLGW_..., NCAAFGAME-...)
+ * - Various delimiter styles: dashes, underscores, or concatenated
+ *
+ * The optional-prefix pattern `(?:^(?:KX|FE|RH)\w*)?` handles all exchange prefixes.
  */
 export const CATEGORY_PATTERNS: CategoryPattern[] = [
-  // Sports - American Football
+  // ── College Football (before NFL to prevent NCAAF matching NFL prefix) ──
+  {
+    category: "NCAAF",
+    pattern: /NCAAF/i,
+    subcategories: ["College Football"],
+  },
+  {
+    category: "NCAAF",
+    pattern: /CFB(?:GAME|PROP|PLAYER|PLAYOFF)?/i,
+    subcategories: ["College Football"],
+  },
+  {
+    category: "NCAAF",
+    pattern: /COLLEGEFB|COLLEGE.?FOOTBALL/i,
+    subcategories: ["College Football"],
+  },
+
+  // ── College Basketball (before NBA) ──
+  {
+    category: "NCAAB",
+    pattern: /NCAA[BM]/i,
+    subcategories: ["College Basketball"],
+  },
+  {
+    category: "NCAAB",
+    pattern: /CBB(?:GAME|PROP)?/i,
+    subcategories: ["College Basketball"],
+  },
+  {
+    category: "NCAAB",
+    pattern: /MARCH\s*MADNESS|FINALFOUR|FINAL.?FOUR/i,
+    subcategories: ["March Madness"],
+  },
+
+  // ── NFL ──
   {
     category: "NFL",
-    pattern: /^KX.*NFL(?:GAME|PLAYER|PROP)?/i,
+    pattern: /NFL(?:GAME|PLAYER|PROP|GW|MNF|TNF|SNF)?/i,
     subcategories: ["Game", "Player Props", "Season"],
   },
   {
     category: "NFL",
-    pattern: /^KX.*(?:SUPERBOWL|SB[0-9]+)/i,
+    pattern: /SUPERBOWL|SB[0-9]+|SUPER.?BOWL/i,
     subcategories: ["Super Bowl"],
   },
-
-  // Sports - College Football
   {
-    category: "Other",
-    pattern: /^KX.*NCAA[AF]?(?:GAME|FB)?/i,
-    subcategories: ["College Football"],
-  },
-  {
-    category: "Other",
-    pattern: /^KX.*CFBGAME/i,
-    subcategories: ["College Football"],
+    category: "NFL",
+    pattern: /NFLDRAFT|NFL.?DRAFT/i,
+    subcategories: ["Draft"],
   },
 
-  // Sports - Basketball
+  // ── NBA ──
   {
     category: "NBA",
-    pattern: /^KX.*NBA(?:GAME|PLAYER|PROP)?/i,
+    pattern: /NBA(?:GAME|PLAYER|PROP)?/i,
     subcategories: ["Game", "Player Props"],
   },
   {
     category: "NBA",
-    pattern: /^KX.*(?:NBAALLSTAR|NBAFINALS)/i,
-    subcategories: ["Finals", "All-Star"],
+    pattern: /NBAALLSTAR|NBAFINALS|NBA.?DRAFT|NBAMVP/i,
+    subcategories: ["Finals", "All-Star", "Draft"],
   },
   {
-    category: "Other",
-    pattern: /^KX.*NCAAB(?:GAME)?/i,
-    subcategories: ["College Basketball"],
-  },
-  {
-    category: "Other",
-    pattern: /^KX.*MARCH\s*MADNESS/i,
-    subcategories: ["March Madness"],
+    category: "NBA",
+    pattern: /WNBA/i,
+    subcategories: ["WNBA"],
   },
 
-  // Sports - Baseball
+  // ── MLB ──
   {
     category: "MLB",
-    pattern: /^KX.*MLB(?:GAME|PLAYER)?/i,
+    pattern: /MLB(?:GAME|PLAYER|PROP)?/i,
     subcategories: ["Game", "Player Props"],
   },
   {
     category: "MLB",
-    pattern: /^KX.*(?:WORLDSERIES|MLBPLAYOFF)/i,
+    pattern: /WORLDSERIES|MLBPLAYOFF|WORLD.?SERIES/i,
     subcategories: ["Playoffs", "World Series"],
   },
 
-  // Sports - Hockey
+  // ── NHL ──
   {
     category: "NHL",
-    pattern: /^KX.*NHL(?:GAME|PLAYER)?/i,
+    pattern: /NHL(?:GAME|PLAYER|PROP)?/i,
     subcategories: ["Game", "Player Props"],
   },
   {
     category: "NHL",
-    pattern: /^KX.*STANLEYCUP/i,
+    pattern: /STANLEYCUP|STANLEY.?CUP/i,
     subcategories: ["Stanley Cup"],
   },
 
-  // Sports - Soccer
+  // ── Soccer ──
   {
     category: "Soccer",
-    pattern: /^KX.*(?:SOCCER|MLS|UEFA|FIFA|EPL|LALIGA|BUNDESLIGA|SERIEA|LIGUE1)/i,
+    pattern: /SOCCER|MLS(?:GAME)?|UEFA|FIFA|EPL|LALIGA|BUNDESLIGA|SERIEA|LIGUE1|PREMIERLEAGUE|CHAMPIONSLEAGUE/i,
     subcategories: ["MLS", "EPL", "UEFA", "World Cup"],
   },
   {
     category: "Soccer",
-    pattern: /^KX.*(?:WORLDCUP|EURO[0-9]+)/i,
+    pattern: /WORLDCUP|EURO[0-9]+|COPA.?AMERICA|CONCACAF/i,
     subcategories: ["International"],
   },
 
-  // Sports - Tennis
+  // ── Tennis ──
   {
     category: "Tennis",
-    pattern: /^KX.*(?:USO(?:MEN|WOMEN)|USOPEN)/i,
+    pattern: /USO(?:MEN|WOMEN)|USOPEN(?!GOLF)/i,
     subcategories: ["US Open"],
   },
   {
     category: "Tennis",
-    pattern: /^KX.*(?:WIMBLEDON|FRENCHOPEN|AUSOPEN|TENNIS)/i,
+    pattern: /WIMBLEDON|FRENCHOPEN|AUSOPEN|TENNIS|ROLAND.?GARROS|ATP|WTA/i,
     subcategories: ["Grand Slam"],
   },
 
-  // Sports - Golf
+  // ── Golf ──
   {
     category: "Golf",
-    pattern: /^KX.*(?:GOLF|PGA|MASTERS|USOPEN|THEOPEN|PGACHAMP)/i,
+    pattern: /GOLF|PGA(?!CHAMP)|MASTERS(?!ERIES)|THEOPEN|PGACHAMP|USOPENGOLF|RYDERC/i,
     subcategories: ["PGA Tour", "Majors"],
   },
 
-  // Sports - Other
+  // ── Combat Sports ──
   {
     category: "Other",
-    pattern: /^KX.*(?:UFC|MMA|BOXING|FIGHT)/i,
+    pattern: /UFC|MMA|BOXING|FIGHT|BELLATOR|PFL/i,
     subcategories: ["Combat Sports"],
   },
+
+  // ── Motorsports ──
   {
     category: "Other",
-    pattern: /^KX.*(?:NASCAR|F1|INDY|RACING)/i,
+    pattern: /NASCAR|FORMULA.?1|F1RACE|INDY(?:CAR|500)|RACING/i,
     subcategories: ["Motorsports"],
   },
+
+  // ── Olympics ──
   {
     category: "Other",
-    pattern: /^KX.*(?:OLYMPICS|TRACK|SWIM)/i,
+    pattern: /OLYMPICS|OLYMPIC|TRACK|SWIM/i,
     subcategories: ["Olympics"],
   },
 
-  // Economics - Fed/Central Bank
+  // ── Economics - Fed/Central Bank ──
   {
     category: "Economics",
-    pattern: /^KX.*(?:FED|FOMC|FEDRATE|FEDDECISION)/i,
+    pattern: /FED(?:RATE|DECISION|FUNDS)?|FOMC|FEDDECISION/i,
     subcategories: ["Fed Decision"],
   },
 
-  // Economics - Inflation
+  // ── Economics - Inflation ──
   {
     category: "Economics",
-    pattern: /^KX.*(?:CPI|INFLATION|PCE)/i,
+    pattern: /CPI|INFLATION|PCE|CONSUMER.?PRICE/i,
     subcategories: ["Inflation"],
   },
 
-  // Economics - GDP/Growth
+  // ── Economics - GDP/Growth ──
   {
     category: "Economics",
-    pattern: /^KX.*(?:GDP|GROWTH)/i,
+    pattern: /GDP|GROWTH|RECESSION/i,
     subcategories: ["GDP"],
   },
 
-  // Economics - Employment
+  // ── Economics - Employment ──
   {
     category: "Economics",
-    pattern: /^KX.*(?:JOBS|JOBLESS|UNEMPLOYMENT|NONFARM|NFP|PAYROLL)/i,
+    pattern: /JOBS|JOBLESS|UNEMPLOYMENT|NONFARM|NFP|PAYROLL|INITIALCLAIMS|JOBSCREATED/i,
     subcategories: ["Employment"],
   },
 
-  // Economics - Other Indicators
+  // ── Economics - Other Indicators ──
   {
     category: "Economics",
-    pattern: /^KX.*(?:RETAIL|HOUSING|ISM|PMI|TRADE)/i,
+    pattern: /RETAIL(?:SALES)?|HOUSING(?:STARTS)?|ISM|PMI|TRADEBALANCE|TREASUR|YIELD|BOND|INTEREST.?RATE/i,
     subcategories: ["Economic Indicators"],
   },
 
-  // Politics - Elections
+  // ── Economics - Stock Market ──
+  {
+    category: "Economics",
+    pattern: /SP500|S&P|NASDAQ|DOW(?:JONES)?|RUSSELL|STOCKMARKET|DJIA/i,
+    subcategories: ["Stock Market"],
+  },
+
+  // ── Politics - Elections ──
   {
     category: "Politics",
-    pattern: /^KX.*(?:ELECTION|PRESIDENT|POTUS|PRES[0-9]+)/i,
+    pattern: /ELECTION|PRESIDENT|POTUS|PRES[0-9]+|ELECTORAL/i,
     subcategories: ["Presidential"],
   },
   {
     category: "Politics",
-    pattern: /^KX.*(?:CONGRESS|SENATE|HOUSE|GOV)/i,
+    pattern: /CONGRESS|SENATE|HOUSE(?:REP)?|GOVERNOR|GOVRACE/i,
     subcategories: ["Congressional"],
   },
   {
     category: "Politics",
-    pattern: /^KX.*(?:PRIMARY|CAUCUS|VOTE)/i,
+    pattern: /PRIMARY|CAUCUS|VOTE|BALLOT|REFERENDUM/i,
     subcategories: ["Primary"],
   },
   {
     category: "Politics",
-    pattern: /^KX.*(?:IMPEACH|SCOTUS|SUPREME)/i,
+    pattern: /IMPEACH|SCOTUS|SUPREME|CABINET|CONFIRMATION|EXECUTIVE.?ORDER/i,
     subcategories: ["Government"],
   },
+  {
+    category: "Politics",
+    pattern: /APPROVAL|POLL(?:ING)?|FAVORABILITY/i,
+    subcategories: ["Polls"],
+  },
+  {
+    category: "Politics",
+    pattern: /TARIFF|SANCTION|GEOPOLIT/i,
+    subcategories: ["Policy"],
+  },
 
-  // Weather
+  // ── Weather ──
   {
     category: "Weather",
-    pattern: /^KX.*(?:WEATHER|TEMP|TEMPERATURE|HURRICANE|STORM)/i,
+    pattern: /WEATHER|TEMP(?:ERATURE)?|HURRICANE|STORM|TORNADO|WILDFIRE|CLIMATE|SNOWFALL|RAINFALL|HEAT/i,
     subcategories: ["Temperature", "Storms"],
   },
 
-  // Cryptocurrency
+  // ── Cryptocurrency ──
   {
     category: "Crypto",
-    pattern: /^KX.*(?:BTC|BITCOIN|ETH|ETHEREUM|CRYPTO)/i,
-    subcategories: ["Bitcoin", "Ethereum"],
+    pattern: /BTC|BITCOIN|ETH|ETHEREUM|CRYPTO|SOL(?:ANA)?|DOGE|XRP|DEFI/i,
+    subcategories: ["Bitcoin", "Ethereum", "Altcoins"],
   },
 
-  // Entertainment
+  // ── Entertainment ──
   {
     category: "Entertainment",
-    pattern: /^KX.*(?:OSCAR|EMMY|GRAMMY|AWARD)/i,
+    pattern: /OSCAR|EMMY|GRAMMY|AWARD|GOLDENGLOBE/i,
     subcategories: ["Awards"],
   },
   {
     category: "Entertainment",
-    pattern: /^KX.*(?:MOVIE|BOXOFFICE|TV|STREAMING)/i,
+    pattern: /MOVIE|BOXOFFICE|BOX.?OFFICE|TV|STREAMING|NETFLIX|DISNEY|VIEWERSHIP|RATINGS/i,
     subcategories: ["Box Office", "TV"],
+  },
+
+  // ── Social Media / Tech ──
+  {
+    category: "Other",
+    pattern: /TWITTER|TIKTOK|YOUTUBE|SUBSCRIBERS|FOLLOWERS|DOWNLOADS|APPSTORE/i,
+    subcategories: ["Social Media"],
+  },
+
+  // ── Science / Space ──
+  {
+    category: "Other",
+    pattern: /SPACEX|NASA|LAUNCH|ROCKET|MARS|MOON/i,
+    subcategories: ["Space"],
+  },
+
+  // ── AI / Tech ──
+  {
+    category: "Other",
+    pattern: /OPENAI|CHATGPT|AI(?:MODEL|LAUNCH|RELEASE)|TECHIPO/i,
+    subcategories: ["AI/Tech"],
   },
 ];
 

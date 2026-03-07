@@ -418,28 +418,33 @@ Each phase is designed to be completable in 1-3 coding sessions and results in s
 ---
 
 ## Phase 12: Analytics Charts
-**Status:** [ ] Not started
+**Status:** [x] Complete
 
 **Description:** Create the analytics page with performance charts.
 
 **Acceptance Criteria:**
-- [ ] CategoryPerformanceChart (horizontal bar)
-- [ ] VolumeTreemap showing volume distribution
-- [ ] FeeAnalysisChart (stacked bar + cumulative line)
-- [ ] Charts use design system colors
-- [ ] Click on category bar → navigates to filtered trades
-- [ ] Responsive chart sizing
-- [ ] Chart tooltips styled consistently
-- [ ] Analytics page layout with all 3 charts
+- [x] CategoryPerformanceChart (horizontal bar)
+- [x] VolumeTreemap showing volume distribution
+- [x] FeeAnalysisChart (stacked bar + cumulative line)
+- [x] Charts use design system colors
+- [x] Click on category bar → navigates to filtered trades
+- [x] Responsive chart sizing
+- [x] Chart tooltips styled consistently
+- [x] Analytics page layout with all 3 charts
 
-**Files to Create/Modify:**
-- `src/components/charts/category-performance-chart.tsx`
-- `src/components/charts/volume-treemap.tsx`
-- `src/components/charts/fee-analysis-chart.tsx`
-- `src/components/charts/chart-legend.tsx`
-- `src/hooks/use-analytics-data.ts`
-- `src/features/analytics/analytics-view.tsx`
-- `src/app/(app)/analytics/page.tsx`
+**Files Created/Modified:**
+- `src/components/charts/category-performance-chart.tsx` - Horizontal bar chart with drill-down
+- `src/components/charts/volume-treemap.tsx` - Treemap with green/red P&L coloring
+- `src/components/charts/fee-analysis-chart.tsx` - ComposedChart (bar + cumulative line)
+- `src/components/charts/chart-legend.tsx` - Reusable chart legend component
+- `src/components/charts/index.ts` - Updated barrel export
+- `src/hooks/use-analytics-data.ts` - TanStack Query hooks for analytics
+- `src/hooks/index.ts` - Updated barrel export
+- `src/features/analytics/analytics-view.tsx` - Analytics page layout
+- `src/features/analytics/index.ts` - Barrel export
+- `src/app/(app)/analytics/page.tsx` - Updated with real charts
+- `src/lib/db/queries/dashboard.ts` - Added getVolumeByCategory, getMonthlyFeesWithCumulative
+- `src/lib/state/query-client.ts` - Added analytics query keys
 
 **Demo:** View category performance, volume distribution, and fee analysis charts
 
