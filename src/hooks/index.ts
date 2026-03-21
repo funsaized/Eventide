@@ -8,4 +8,5 @@ export * from "./use-demo-mode";
 export * from "./use-import-statement";
 export * from "./use-settings-data";
 export * from "./use-toast";
+export * from "./use-positions-data";
 export * from "./use-trades-data";

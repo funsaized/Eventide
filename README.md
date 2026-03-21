@@ -1,195 +1,220 @@
 # Eventide
 
-**Local-first analytics platform for prediction market trading**
+**Local-first analytics for prediction market traders**
 
-Eventide is a privacy-preserving analytics platform that helps prediction market traders understand their true performance. Import your Robinhood Derivatives monthly statements and get insights into P&L, win rates, category performance, and fee drag—all processed locally in your browser.
+Eventide turns your Robinhood Derivatives PDF statements into actionable trading analytics — entirely in your browser. No server, no cloud, no account. Upload your monthly statements and instantly see your true P&L, win rate, fee drag, and category performance.
 
-## Privacy First
-
-Your financial data is sensitive. Eventide is designed from the ground up to keep it private:
-
-| Principle | Implementation |
-|-----------|----------------|
-| **No Server Upload** | PDFs are parsed entirely in your browser using WebAssembly. Your statements never leave your device. |
-| **No Cloud Database** | All data is stored locally in your browser's IndexedDB. There is no server to breach. |
-| **No Telemetry** | Zero analytics, tracking pixels, or usage monitoring. No user identification or trade data collection. |
-| **No Account Required** | No email, no login, no personal information collected—ever. |
-| **Open Source** | The code is fully auditable. Verify privacy claims directly in the source. |
-| **Offline Capable** | After initial load, the app works without internet. Your data stays air-gapped if desired. |
-
-**The only network requests Eventide makes are to load the application itself.** Once loaded, all PDF parsing, calculations, and data storage happen entirely within your browser's sandbox.
+---
 
 ## Why Eventide?
 
-Traders lack visibility into their true performance because data is locked in static PDF statements. Eventide ingests those PDFs locally to reveal:
+Robinhood's monthly statements are dense PDFs with YES/NO contract legs reported separately. Understanding your actual performance requires cross-referencing sections, pairing opposite legs, and reconciling settlements. Eventide does all of this automatically.
 
-- **True cost of trading** — separating fees from P&L
-- **Cash flow separation** — skill/ROI vs capital injections
-- **Category-based insights** — which market types are profitable
-- **Historical performance trends** — time-series analysis
+**What you get:**
 
-## Key Features
+- **Dashboard** — Net liquidity over time, realized P&L, win rate, fee drag, open positions, and trading profit at a glance
+- **Position Journal** — Grouped by symbol with net P&L. Expand any position to see underlying YES/NO legs, entry/exit prices, and settlement details
+- **Analytics** — Category performance charts (NFL, NBA, Economics, etc.), volume treemaps, and fee analysis breakdowns
+- **Multi-statement support** — Import multiple monthly PDFs at once with aggregate preview and per-file breakdown
 
-- **100% Local-First**: All data processing happens in-browser, zero server dependencies
-- **Privacy-Preserving**: No cloud extraction, no telemetry, no user tracking
-- **Robinhood Derivatives Support**: Parse monthly statements with full trade detail
-- **P&L Validation**: Cross-reference calculated P&L against statement figures
+## Privacy First
 
-## Tech Stack
+Your financial data never leaves your browser.
 
-- **Framework**: Next.js 15+ with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS v4 + shadcn/ui components
-- **Database**: wa-sqlite with IndexedDB persistence (OPFS planned)
-- **PDF Parsing**: pdf.js with custom section parsers
-- **State Management**: TanStack Query + Zustand
-- **Charts**: Recharts (planned)
+| Principle | How |
+|-----------|-----|
+| **No Server Upload** | PDFs parsed entirely in-browser using WebAssembly |
+| **No Cloud Database** | Data stored in your browser's IndexedDB via wa-sqlite |
+| **No Telemetry** | Zero analytics, tracking, or usage monitoring |
+| **No Account** | No email, no login, no personal information collected |
+| **Open Source** | Fully auditable — verify every claim in the source |
+| **Offline Capable** | Works without internet after initial load |
 
-## Browser Support
-
-Eventide requires a Chromium-based browser for local data persistence:
-
-- ✅ Chrome 119+
-- ✅ Microsoft Edge 119+
-- ✅ Brave 1.60+
-- ❌ Firefox (not supported)
-- ❌ Safari (not supported)
+The only network request is loading the app itself. Everything else — parsing, calculations, storage — runs locally.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- pnpm (recommended) or npm
+- npm or pnpm
+- A Chromium-based browser (Chrome 119+, Edge 119+, or Brave 1.60+)
 
-### Installation
+### Install and Run
 
 ```bash
-# Clone the repository
 git clone https://github.com/snimmagadda1/rubbin-hood.git
 cd rubbin-hood
-
-# Install dependencies
-pnpm install
-
-# Start the development server
-pnpm dev
+npm install
+npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in a Chromium-based browser.
+Open [http://localhost:3000](http://localhost:3000) and upload your first statement.
 
-### Running Tests
+### Try the Demo
+
+Don't have a statement handy? Click **Try Demo** on the landing page to explore the app with sample data. When you upload your first real statement, the demo data is automatically replaced.
+
+## How It Works
+
+```
+PDF Upload → pdf.js → Section Parsers → wa-sqlite/IndexedDB
+                                              ↓
+                         React UI ← TanStack Query ← SQL queries
+                           ↑
+                      Zustand (filters, UI state)
+```
+
+### Statement Parsing
+
+Eventide parses 7 sections from Robinhood Derivatives monthly statements:
+
+| Section | Content | What It Provides |
+|---------|---------|------------------|
+| 2 | Monthly Trade Confirmations | Individual trades with prices, quantities, fees |
+| 3 | Non-Trade Activity | Account activity records |
+| 4 | Purchase and Sale | Prior-period settlements, closing trades |
+| 5 | Purchase and Sale Summary | **Source of truth for P&L** — paired YES/NO totals per symbol |
+| 6 | Journal Entries | Cash flows: deposits, withdrawals, interest |
+| 7 | Open Positions | Unrealized positions with current market value |
+| 10 | Account Summary | Net liquidity, ending cash, total fees |
+
+Trades from Sections 2 and 4 are deduplicated automatically. P&L figures from Section 5 are cross-validated against FIFO calculations with per-symbol discrepancy reporting.
+
+### Position-Centric Journal
+
+Robinhood reports prediction market trades as separate YES/NO legs. Buying "Team A wins" shows as `YES 100 @ $0.50`, and selling it shows as `NO 100 @ $0.43` — making raw trade logs hard to read.
+
+Eventide groups these into positions:
+
+| What you see | What's underneath |
+|--------------|-------------------|
+| PHI — Won $27.80 | YES 130 @ $0.79 + NO 130 @ $1.00 (settlement) |
+| TENN — Lost $186.00 | YES 400 @ $0.75 + NO 400 @ $0.29 (settlement) |
+
+Click any position to expand and see every leg, fill, and settlement — in chronological order.
+
+### P&L Accuracy
+
+P&L is computed in SQL using Section 5 as the authoritative source, not approximated from trade logs:
+
+- **Per-trade P&L**: Computed from settlement price vs entry price
+- **Per-position P&L**: Sourced directly from the statement's Purchase and Sale Summary
+- **Validation**: FIFO-calculated P&L is compared against reported figures with a $0.01 tolerance
+- **Discrepancy reporting**: Any mismatches are flagged during import preview, before you commit
+
+## Features
+
+### Dashboard
+
+Six metric tiles with trend indicators and sparklines:
+
+- **Net Liquidity** — Total account value over time
+- **Realized P&L** — Closed position performance
+- **Trading Profit** — Gross P&L minus fees
+- **Win Rate** — Wins vs losses with counts
+- **Total Fees** — Commission and exchange fee drag
+- **Unrealized P&L** — Open position exposure
+
+### Trade Journal
+
+- **Position grouping** — One row per symbol, expandable to individual legs
+- **Net P&L per position** — From Section 5 source of truth
+- **Filtering** — By date range, category, symbol, P&L range, open/closed status
+- **Sorting** — By date, symbol, P&L, fees, category, status
+- **Pagination** — 25/50/100 per page
+- **CSV export** — Download flat trade data with all fields
+
+### Analytics
+
+- **Category Performance** — Bar chart comparing net P&L across NFL, NBA, Economics, Politics, Golf, and 10+ other categories
+- **Volume Treemap** — Visual breakdown of trading volume by category
+- **Fee Analysis** — Fee impact by category with drag percentages
+
+### Settings
+
+- **Import History** — View and manage individual statement imports
+- **Storage Indicator** — See how much browser storage your data uses
+- **Data Export** — Download your complete dataset
+- **Default View** — Choose your landing page
+- **Data Wipe** — Delete all imported data with confirmation
+
+### Multi-File Upload
+
+- Drag and drop or select multiple PDFs at once
+- Sequential parsing with per-file progress
+- Aggregate preview with per-file breakdown table
+- Per-file duplicate detection with replace or skip options
+- Resume remaining files after handling a duplicate
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16, React 19 |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS v4, shadcn/ui |
+| Database | wa-sqlite with IndexedDB (OPFS) |
+| PDF Parsing | pdf.js with custom section parsers |
+| State | TanStack Query v5, Zustand |
+| Tables | TanStack Table v8 |
+| Charts | Recharts |
+| Testing | Vitest |
+
+## Browser Support
+
+Eventide requires a Chromium-based browser for OPFS (Origin Private File System) support:
+
+| Browser | Supported | Minimum Version |
+|---------|-----------|-----------------|
+| Chrome | Yes | 119+ |
+| Microsoft Edge | Yes | 119+ |
+| Brave | Yes | 1.60+ |
+| Firefox | No | OPFS not supported |
+| Safari | No | OPFS not supported |
+
+## Development
 
 ```bash
-# Run unit tests
-pnpm test
+npm run dev              # Dev server at http://localhost:3000
+npm run build            # Production build (static export)
+npm run lint             # ESLint
+npx tsc --noEmit         # Type check
 
-# Run tests with coverage
-pnpm test:coverage
+npm test                 # Vitest watch mode
+npm run test:run         # Single run (390+ tests)
+npm run test:coverage    # With v8 coverage
 ```
 
-## Project Structure
+### Project Structure
 
 ```
 src/
-├── app/                    # Next.js App Router pages
-│   ├── (app)/              # Main application routes
-│   │   ├── dashboard/      # Portfolio overview
-│   │   ├── trades/         # Trade journal
-│   │   ├── analytics/      # Performance charts
-│   │   └── settings/       # User preferences
-│   └── layout.tsx          # Root layout
+├── app/(app)/              # Pages: dashboard, trades, analytics, settings, upload
 ├── components/
-│   ├── ui/                 # shadcn/ui components
-│   ├── layout/             # App shell, sidebar, navigation
-│   └── browser/            # Browser compatibility checks
-├── lib/
-│   ├── db/                 # Database layer (wa-sqlite)
-│   │   ├── client.ts       # Database connection
-│   │   ├── schema.ts       # Table definitions
-│   │   ├── migrations/     # Schema migrations
-│   │   └── queries/        # Query functions
-│   ├── parsing/            # PDF parsing engine
-│   │   ├── pdf-loader.ts   # pdf.js wrapper
-│   │   ├── sections/       # Section-specific parsers
-│   │   ├── parsers/        # Versioned parser implementations
-│   │   └── registry.ts     # Parser version detection
-│   └── state/              # TanStack Query + Zustand
-└── tests/                  # Test suites
+│   ├── ui/                 # shadcn/ui primitives
+│   ├── dashboard/          # Dashboard tiles and sparklines
+│   ├── trade-journal/      # Position table, filters, badges
+│   ├── charts/             # Recharts wrappers
+│   └── upload/             # File uploader, preview, progress
+├── features/               # Cross-cutting: imports, analytics, demo, settings
+├── hooks/                  # TanStack Query wrappers
+└── lib/
+    ├── db/                 # wa-sqlite client, schema, migrations, queries
+    ├── parsing/            # PDF section parsers, FIFO, validation
+    ├── calculations/       # P&L computation, fee attribution
+    └── state/              # Query client, Zustand stores
 ```
-
-## Development Status
-
-Eventide is under active development. See [PHASES.md](docs/PHASES.md) for detailed progress.
-
-### Completed Phases
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| 1 | Project Foundation | ✅ Complete |
-| 2 | App Shell & Routing | ✅ Complete |
-| 3 | Database Layer | ✅ Complete |
-| 4 | PDF Parsing Foundation | ✅ Complete |
-| 5 | Section Parsers (Trades & P&L) | ✅ Complete |
-
-### Current Progress
-
-- **Section 2 Parser**: Monthly Trade Confirmations (trades, settlements)
-- **Section 4 Parser**: Purchase and Sale (includes prior-month settlements)
-- **Section 5 Parser**: Purchase and Sale Summary (P&L source of truth)
-- **Trade Deduplication**: Cross-references Sections 2 & 4 to avoid double-counting
-- **Symbol Categorization**: 15+ market categories (NFL, NBA, Economics, Politics, etc.)
-
-### Upcoming Phases
-
-| Phase | Description |
-|-------|-------------|
-| 6 | Complete Parsing Pipeline (FIFO, validation) |
-| 7 | Upload Flow UI |
-| 8-9 | Dashboard with real data |
-| 10-11 | Trade Journal with filters |
-| 12 | Analytics Charts |
-| 13 | Demo Mode |
-| 14-16 | Settings, Testing, Deployment |
-
-## Statement Parsing
-
-Eventide parses Robinhood Derivatives monthly statements which contain:
-
-| Section | Content | Parser Status |
-|---------|---------|---------------|
-| 2 | Monthly Trade Confirmations | ✅ Implemented |
-| 4 | Purchase and Sale | ✅ Implemented |
-| 5 | Purchase and Sale Summary | ✅ Implemented |
-| 6 | Journal Entries (cash flows) | 🔲 Planned |
-| 7 | Open Positions | 🔲 Planned |
-| 10 | Account Summary | 🔲 Planned |
-
-### P&L Calculation Strategy
-
-Section 5 is the **source of truth** for P&L figures. The parser:
-
-1. Extracts all trades from Section 2 (current month) and Section 4 (includes prior months)
-2. Deduplicates trades that appear in both sections
-3. Pairs YES/NO rows in Section 5 to calculate net P&L per position
-4. Validates calculated P&L against statement figures (±$0.01 tolerance)
-
-## Documentation
-
-- [Product Requirements (spec-v3.md)](docs/spec-v3.md) — Full PRD with architecture decisions
-- [Implementation Phases](docs/PHASES.md) — Detailed phase tracking
-- [Design System](docs/DESIGN-SYSTEM.md) — Dark Monarch theme and component guidelines
-- [Package Dependencies](docs/PACKAGES.md) — Dependency decisions and rationale
 
 ## Contributing
 
-Contributions are welcome! Please read the existing documentation before submitting PRs.
+Contributions are welcome. A few ground rules:
 
-### Development Guidelines
-
-- All parsing logic is pure TypeScript (no React dependencies)
-- UI never executes raw SQL directly—use `lib/db/queries/*`
-- Run `pnpm lint` and `pnpm test` before committing
+- P&L is computed in SQL, never in JavaScript
+- All parsing logic is pure TypeScript with no React dependencies
+- Named exports only (no default exports except page/config files)
+- Run `npm run lint && npx tsc --noEmit && npm run test:run` before submitting a PR
+- See [AGENTS.md](AGENTS.md) for detailed code style and architecture guidelines
 
 ## License
 
@@ -197,4 +222,4 @@ MIT
 
 ---
 
-Built with privacy in mind. Your trading data never leaves your browser.
+Your trading data stays on your device. Always.

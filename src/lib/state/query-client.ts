@@ -71,6 +71,12 @@ export const queryKeys = {
       all: () => [...queryKeys.positions.all, "open"] as const,
       current: () => [...queryKeys.positions.all, "open", "current"] as const,
     },
+    journal: {
+      list: (filters?: Record<string, unknown>) =>
+        [...queryKeys.positions.all, "journal", "list", filters ?? {}] as const,
+      trades: (symbol: string) =>
+        [...queryKeys.positions.all, "journal", "trades", symbol] as const,
+    },
   },
 
   // Cash flows

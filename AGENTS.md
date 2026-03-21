@@ -45,6 +45,8 @@ PDF Upload → pdf.js → Section Parsers → wa-sqlite/IndexedDB
 ### Critical Rules
 
 - **P&L is computed in SQL** — never in JavaScript. See `PNL_EXPRESSION` / `STATUS_EXPRESSION` in `queries/trades.ts`.
+- **Position journal groups by symbol** — the `/trades` page shows `PositionJournalRow` (one row per symbol), not individual YES/NO trades. P&L sourced from `closed_positions` table via `LEFT JOIN`. Child trades lazy-loaded on expand via `getTradesForPosition(symbol)`.
+- **Upload supports multiple PDFs** — `FileUploader` accepts `File[]`, `upload-flow.tsx` parses sequentially with aggregate preview, imports sequentially with per-file duplicate handling and resume.
 - **Chromium-only** (Chrome 119+, Edge 119+, Brave 1.60+). OPFS requirement blocks Firefox/Safari. `BrowserBlocker` enforces this.
 - **All queries are serialized** through the db query queue. Transactions bypass the queue to avoid deadlock.
 
@@ -141,8 +143,8 @@ import type { SortOptions, TradeFilter } from "@/lib/db/types";
 
 ### TanStack Query (`src/lib/state/query-client.ts`)
 
-- Factory-pattern query keys: `queryKeys.trades.list({ filter, page, pageSize, sort })`
-- 60s default stale time; 5min gc time
+- Factory-pattern query keys: `queryKeys.trades.list({ filter, page, pageSize, sort })`, `queryKeys.positions.journal.list(...)`, `queryKeys.positions.journal.trades(symbol)`
+- 60s default stale time; 5min gc time; child trade queries use 5min stale time
 - Hooks in `src/hooks/` wrap query functions — never call `query()` directly from components
 
 ## Database Patterns

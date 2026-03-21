@@ -8,6 +8,7 @@ import { query, execute, getDatabase } from "../client";
 import type {
   Trade,
   TradeJournalRow,
+  PositionJournalRow,
   CreateTradeInput,
   TradeFilter,
   PaginationOptions,
@@ -417,4 +418,170 @@ export async function getTradesForJournal(
     trades,
     total: countResult[0]?.count ?? 0,
   };
+}
+
+// ============================================================================
+// POSITION JOURNAL QUERIES (grouped by symbol, P&L from closed_positions)
+// ============================================================================
+
+/**
+ * Sort field whitelist for position journal queries
+ */
+const allowedPositionFields: Record<string, string> = {
+  first_trade_date: "first_trade_date",
+  last_trade_date: "last_trade_date",
+  symbol: "symbol",
+  net_pnl: "COALESCE(net_pnl, 0)",
+  total_fees: "total_fees",
+  category: "COALESCE(category, '')",
+  status: "status",
+  trade_count: "trade_count",
+};
+
+/**
+ * Get positions for journal view grouped by symbol with P&L from closed_positions.
+ * Supports filtering, pagination, and sorting.
+ */
+export async function getPositionsForJournal(
+  filter: TradeFilter,
+  pagination: PaginationOptions,
+  sort?: SortOptions
+): Promise<{ positions: PositionJournalRow[]; total: number }> {
+  // Trade-level WHERE conditions (applied before GROUP BY)
+  const tradeConditions: string[] = [];
+  const tradeParams: unknown[] = [];
+
+  if (filter.dateRange) {
+    tradeConditions.push("t.trade_date BETWEEN ? AND ?");
+    tradeParams.push(filter.dateRange.start, filter.dateRange.end);
+  }
+
+  if (filter.categories && filter.categories.length > 0) {
+    const placeholders = filter.categories.map(() => "?").join(", ");
+    tradeConditions.push(`t.category IN (${placeholders})`);
+    tradeParams.push(...filter.categories);
+  }
+
+  if (filter.symbols && filter.symbols.length > 0) {
+    const placeholders = filter.symbols.map(() => "?").join(", ");
+    tradeConditions.push(`t.symbol IN (${placeholders})`);
+    tradeParams.push(...filter.symbols);
+  }
+
+  if (filter.importId) {
+    tradeConditions.push("t.import_id = ?");
+    tradeParams.push(filter.importId);
+  }
+
+  const tradeWhere =
+    tradeConditions.length > 0 ? `WHERE ${tradeConditions.join(" AND ")}` : "";
+
+  // Position-level WHERE conditions (applied after CTE)
+  const positionConditions: string[] = [];
+  const positionParams: unknown[] = [];
+
+  if (filter.status === "OPEN") {
+    positionConditions.push("status = ?");
+    positionParams.push("OPEN");
+  } else if (filter.status === "CLOSED") {
+    positionConditions.push("status = ?");
+    positionParams.push("CLOSED");
+  }
+
+  if (filter.minPnl != null) {
+    positionConditions.push("COALESCE(net_pnl, 0) >= ?");
+    positionParams.push(filter.minPnl);
+  }
+
+  if (filter.maxPnl != null) {
+    positionConditions.push("COALESCE(net_pnl, 0) <= ?");
+    positionParams.push(filter.maxPnl);
+  }
+
+  const positionWhere =
+    positionConditions.length > 0
+      ? `WHERE ${positionConditions.join(" AND ")}`
+      : "";
+
+  // Sorting
+  const sortField = sort?.field ?? "first_trade_date";
+  const sortDir = sort?.direction ?? "desc";
+  const safeField = allowedPositionFields[sortField] ?? "first_trade_date";
+  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
+
+  // Pagination
+  const offset = (pagination.page - 1) * pagination.pageSize;
+
+  const cte = `
+    WITH position_groups AS (
+      SELECT
+        t.symbol,
+        MAX(t.category) AS category,
+        MIN(t.trade_date) AS first_trade_date,
+        MAX(t.trade_date) AS last_trade_date,
+        COUNT(*) AS trade_count,
+        SUM(CASE WHEN t.side IN ('YES','LONG') THEN t.quantity ELSE 0 END) AS yes_quantity,
+        SUM(CASE WHEN t.side IN ('NO','SHORT') THEN t.quantity ELSE 0 END) AS no_quantity,
+        CASE
+          WHEN SUM(CASE WHEN t.side IN ('YES','LONG') THEN t.quantity ELSE 0 END) > 0
+          THEN ROUND(
+            SUM(CASE WHEN t.side IN ('YES','LONG') THEN t.price * t.quantity ELSE 0 END) /
+            SUM(CASE WHEN t.side IN ('YES','LONG') THEN t.quantity ELSE 0 END), 4)
+          ELSE NULL
+        END AS avg_entry_price,
+        CASE
+          WHEN SUM(CASE WHEN t.side IN ('NO','SHORT') THEN t.quantity ELSE 0 END) > 0
+          THEN ROUND(
+            SUM(CASE WHEN t.side IN ('NO','SHORT') THEN t.price * t.quantity ELSE 0 END) /
+            SUM(CASE WHEN t.side IN ('NO','SHORT') THEN t.quantity ELSE 0 END), 4)
+          ELSE NULL
+        END AS avg_exit_price,
+        SUM(t.fees) AS total_fees,
+        cp_agg.gross_pnl,
+        cp_agg.net_pnl,
+        CASE WHEN cp_agg.symbol IS NOT NULL THEN 'CLOSED' ELSE 'OPEN' END AS status
+      FROM trades t
+      LEFT JOIN (
+        SELECT symbol, SUM(gross_pnl) AS gross_pnl, SUM(COALESCE(net_pnl, gross_pnl)) AS net_pnl
+        FROM closed_positions GROUP BY symbol
+      ) cp_agg ON cp_agg.symbol = t.symbol
+      ${tradeWhere}
+      GROUP BY t.symbol
+    )`;
+
+  const positions = await query<PositionJournalRow>(
+    `${cte}
+     SELECT * FROM position_groups
+     ${positionWhere}
+     ORDER BY ${safeField} ${safeDir}
+     LIMIT ? OFFSET ?`,
+    [...tradeParams, ...positionParams, pagination.pageSize, offset]
+  );
+
+  const countResult = await query<{ count: number }>(
+    `${cte}
+     SELECT COUNT(*) AS count FROM position_groups
+     ${positionWhere}`,
+    [...tradeParams, ...positionParams]
+  );
+
+  return {
+    positions,
+    total: countResult[0]?.count ?? 0,
+  };
+}
+
+/**
+ * Get all trades for a specific position (symbol), ordered chronologically.
+ */
+export async function getTradesForPosition(symbol: string): Promise<TradeJournalRow[]> {
+  return query<TradeJournalRow>(
+    `SELECT t.*,
+       ${PNL_EXPRESSION} as pnl,
+       ${STATUS_EXPRESSION} as status
+     FROM trades t
+     WHERE t.symbol = ?
+     ORDER BY t.trade_date ASC, t.side ASC`,
+    [symbol]
+  );
 }

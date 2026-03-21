@@ -287,6 +287,25 @@ export interface TradeJournalRow extends Trade {
   status: "OPEN" | "CLOSED";
 }
 
+/**
+ * Position-centric view row (grouped by symbol, P&L from closed_positions)
+ */
+export interface PositionJournalRow {
+  symbol: string;
+  category: string | null;
+  first_trade_date: string;
+  last_trade_date: string;
+  trade_count: number;
+  yes_quantity: number;
+  no_quantity: number;
+  avg_entry_price: number | null;
+  avg_exit_price: number | null;
+  total_fees: number;
+  gross_pnl: number | null;
+  net_pnl: number | null;
+  status: "OPEN" | "CLOSED";
+}
+
 // ============================================================================
 // FILTER TYPES
 // ============================================================================

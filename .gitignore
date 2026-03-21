@@ -25,6 +25,9 @@
 *.pem
 /private/
 
+# AI agent working files
+.sisyphus/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
