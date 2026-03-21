@@ -2,6 +2,8 @@
 
 **Local-first analytics for prediction market traders**
 
+**[Try it live at eventide.s11a.com](https://eventide.s11a.com/)**
+
 Eventide turns your Robinhood Derivatives PDF statements into actionable trading analytics — entirely in your browser. No server, no cloud, no account. Upload your monthly statements and instantly see your true P&L, win rate, fee drag, and category performance.
 
 ---
