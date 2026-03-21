@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TradeTable } from "@/components/trade-journal/trade-table";
 import { FilterBar } from "@/components/trade-journal/filters";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { ErrorState } from "@/components/feedback/error-state";
 import { TableSkeleton } from "@/components/feedback/skeleton-loaders";
 import { useTradesData, useCategories } from "@/hooks/use-trades-data";
 import { useHasData } from "@/hooks/use-dashboard-data";
@@ -80,11 +81,10 @@ export default function TradesPage() {
       <div className="space-y-6">
         <Card>
           <CardContent className="py-12">
-            <EmptyState
-              variant="trades"
+            <ErrorState
               title="Failed to load trades"
               description="Something went wrong loading your trade data. Please try refreshing the page."
-              showAction={false}
+              onRetry={() => window.location.reload()}
             />
           </CardContent>
         </Card>

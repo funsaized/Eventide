@@ -61,7 +61,7 @@ export function useDemoTransition() {
   const setIsDemo = useUserPreferencesStore((s) => s.setIsDemo);
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   /**
    * Call this before starting a real import while in demo mode.
@@ -69,12 +69,12 @@ export function useDemoTransition() {
    * If not in demo mode, calls onProceed immediately.
    */
   const checkDemoTransition = useCallback(
-    (file: File, onProceed: (file: File) => void) => {
+    (files: File[], onProceed: (files: File[]) => void) => {
       if (!isDemo) {
-        onProceed(file);
+        onProceed(files);
         return;
       }
-      setPendingFile(file);
+      setPendingFiles(files);
       setShowModal(true);
     },
     [isDemo]
@@ -84,27 +84,27 @@ export function useDemoTransition() {
    * Confirm demo transition: wipe demo data, then proceed with real import
    */
   const confirmTransition = useCallback(
-    async (onProceed: (file: File) => void) => {
-      if (!pendingFile) return;
+    async (onProceed: (files: File[]) => void) => {
+      if (pendingFiles.length === 0) return;
 
       try {
         await wipeDemoData();
         setIsDemo(false);
         await queryClient.invalidateQueries();
         setShowModal(false);
-        onProceed(pendingFile);
+        onProceed(pendingFiles);
       } catch (error) {
         console.error("[Demo] Failed to wipe demo data:", error);
       } finally {
-        setPendingFile(null);
+        setPendingFiles([]);
       }
     },
-    [pendingFile, setIsDemo, queryClient]
+    [pendingFiles, setIsDemo, queryClient]
   );
 
   const cancelTransition = useCallback(() => {
     setShowModal(false);
-    setPendingFile(null);
+    setPendingFiles([]);
   }, []);
 
   return {

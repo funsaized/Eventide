@@ -6,6 +6,7 @@
  * Displays a summary of parsed statement data before import.
  */
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,10 @@ export interface ImportPreviewData {
   warnings: string[];
 }
 
+export interface FilePreviewData extends ImportPreviewData {
+  fileName: string;
+}
+
 export interface ImportPreviewProps {
   /** Parsed data to preview */
   data: ImportPreviewData;
@@ -46,6 +51,8 @@ export interface ImportPreviewProps {
   onImport: () => void;
   /** Callback when import is cancelled */
   onCancel: () => void;
+  fileCount?: number;
+  filePreviews?: FilePreviewData[];
   /** Custom class name */
   className?: string;
 }
@@ -85,6 +92,8 @@ export function ImportPreview({
   isImporting = false,
   onImport,
   onCancel,
+  fileCount = 1,
+  filePreviews,
   className,
 }: ImportPreviewProps) {
   const hasWarnings = data.warnings.length > 0;
@@ -97,7 +106,7 @@ export function ImportPreview({
           <div>
             <CardTitle>Import Preview</CardTitle>
             <CardDescription>
-              Review the parsed data before importing
+              Review parsed data from {fileCount} file{fileCount !== 1 ? "s" : ""} before importing
             </CardDescription>
           </div>
           {data.pnlValidation.isValid ? (
@@ -177,7 +186,10 @@ export function ImportPreview({
           </div>
         </div>
 
-        {/* Warnings */}
+        {filePreviews && filePreviews.length > 1 && (
+          <FileBreakdownTable filePreviews={filePreviews} />
+        )}
+
         {hasWarnings && (
           <div className="p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/5">
             <h4 className="font-medium text-yellow-500 mb-2">
@@ -209,7 +221,7 @@ export function ImportPreview({
                 Importing...
               </>
             ) : (
-              "Import Statement"
+              `Import ${fileCount} Statement${fileCount !== 1 ? "s" : ""}`
             )}
           </Button>
           <Button
@@ -224,10 +236,79 @@ export function ImportPreview({
         {hasPnlIssues && (
           <p className="text-xs text-muted-foreground">
             <strong>Note:</strong> P&L discrepancies are logged for review but
-            won't block the import. Section 5 values are used as the source of truth.
+            won&apos;t block the import. Section 5 values are used as the source of truth.
           </p>
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function FileBreakdownTable({ filePreviews }: { filePreviews: FilePreviewData[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border">
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        className="w-full flex items-center justify-between p-4 text-sm font-medium hover:bg-muted/50 transition-colors"
+      >
+        <span>Per-File Breakdown ({filePreviews.length} files)</span>
+        <span className="text-muted-foreground text-xs">
+          {expanded ? "Hide" : "Show"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t overflow-auto max-h-64">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-background border-b">
+              <tr>
+                <th className="text-left p-2 pl-4">File</th>
+                <th className="text-left p-2">Date</th>
+                <th className="text-right p-2">Trades</th>
+                <th className="text-right p-2">Closed</th>
+                <th className="text-right p-2">Gross P&L</th>
+                <th className="text-right p-2">Fees</th>
+                <th className="text-right p-2 pr-4">P&L Valid</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filePreviews.map((fp, i) => (
+                <tr key={i} className="border-b last:border-0">
+                  <td className="p-2 pl-4 font-mono text-xs truncate max-w-[200px]">
+                    {fp.fileName}
+                  </td>
+                  <td className="p-2 whitespace-nowrap">{fp.statementDate}</td>
+                  <td className="p-2 text-right font-mono">{fp.tradeCount}</td>
+                  <td className="p-2 text-right font-mono">{fp.closedPositionCount}</td>
+                  <td
+                    className={cn(
+                      "p-2 text-right font-mono",
+                      fp.grossPnl >= 0 ? "text-green-500" : "text-red-500"
+                    )}
+                  >
+                    {formatCurrency(fp.grossPnl)}
+                  </td>
+                  <td className="p-2 text-right font-mono">
+                    {formatCurrency(fp.totalFees)}
+                  </td>
+                  <td className="p-2 text-right pr-4">
+                    {fp.pnlValidation.isValid ? (
+                      <span className="text-green-500">✓</span>
+                    ) : (
+                      <span className="text-yellow-500">
+                        {fp.pnlValidation.failCount} issue{fp.pnlValidation.failCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

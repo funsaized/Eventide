@@ -3,6 +3,7 @@
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import { StorageWarning } from "@/components/browser";
+import { ErrorBoundary } from "@/components/feedback";
 import { useDemoInit } from "@/hooks/use-demo-mode";
 
 interface AppShellProps {
@@ -26,7 +27,7 @@ export function AppShell({ children, title }: AppShellProps) {
         <main className="flex-1 overflow-y-auto">
           <div className="container mx-auto p-4 md:p-6">
             <StorageWarning />
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </div>
         </main>
       </div>

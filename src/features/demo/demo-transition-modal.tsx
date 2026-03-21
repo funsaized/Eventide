@@ -36,7 +36,7 @@ export function DemoTransitionModal({
           <AlertDialogTitle>Replace demo data?</AlertDialogTitle>
           <AlertDialogDescription>
             This will remove all demo data and import your real trading
-            statement. Your actual trades, P&L, and analytics will replace the
+            statement files. Your actual trades, P&L, and analytics will replace the
             sample data.
           </AlertDialogDescription>
         </AlertDialogHeader>

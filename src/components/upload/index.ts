@@ -15,6 +15,7 @@ export {
   ImportPreview,
   type ImportPreviewProps,
   type ImportPreviewData,
+  type FilePreviewData,
 } from "./import-preview";
 export {
   ParseErrorReport,

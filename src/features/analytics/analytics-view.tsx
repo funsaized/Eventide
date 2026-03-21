@@ -13,6 +13,7 @@ import { VolumeTreemap } from "@/components/charts/volume-treemap";
 import { FeeAnalysisChart } from "@/components/charts/fee-analysis-chart";
 import { ChartLegend } from "@/components/charts/chart-legend";
 import { EmptyState } from "@/components/feedback/empty-state";
+import { ErrorState } from "@/components/feedback/error-state";
 import { ChartSkeleton } from "@/components/feedback/skeleton-loaders";
 import {
   useCategoryPerformanceChart,
@@ -32,6 +33,19 @@ export function AnalyticsView() {
     categoryQuery.isLoading ||
     volumeQuery.isLoading ||
     feeQuery.isLoading;
+
+  const isError =
+    categoryQuery.isError || volumeQuery.isError || feeQuery.isError;
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="Failed to load analytics"
+        description="Something went wrong loading your analytics data. Please try refreshing the page."
+        onRetry={() => window.location.reload()}
+      />
+    );
+  }
 
   if (isLoading) {
     return (

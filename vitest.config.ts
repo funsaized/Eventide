@@ -10,7 +10,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/lib/parsing/**/*.ts"],
+      include: [
+        "src/lib/parsing/**/*.ts",
+        "src/lib/calculations/**/*.ts",
+      ],
     },
   },
   resolve: {

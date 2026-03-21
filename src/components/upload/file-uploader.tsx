@@ -11,8 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 export interface FileUploaderProps {
-  /** Callback when a valid file is selected */
-  onFileSelect: (file: File) => void;
+  onFileSelect: (files: File[]) => void;
   /** Whether upload is disabled */
   disabled?: boolean;
   /** Maximum file size in MB */
@@ -59,17 +58,22 @@ export function FileUploader({
     [maxSizeMB]
   );
 
-  const handleFile = useCallback(
-    (file: File) => {
+  const handleFiles = useCallback(
+    (files: File[]) => {
       setError(null);
-      const validation = validateFile(file);
 
-      if (!validation.valid) {
+      if (files.length === 0) {
+        return;
+      }
+
+      const invalidFile = files.find((file) => !validateFile(file).valid);
+      if (invalidFile) {
+        const validation = validateFile(invalidFile);
         setError(validation.error ?? "Invalid file");
         return;
       }
 
-      onFileSelect(file);
+      onFileSelect(files);
     },
     [validateFile, onFileSelect]
   );
@@ -82,12 +86,10 @@ export function FileUploader({
 
       if (disabled) return;
 
-      const file = e.dataTransfer.files[0];
-      if (file) {
-        handleFile(file);
-      }
+      const files = Array.from(e.dataTransfer.files);
+      handleFiles(files);
     },
-    [disabled, handleFile]
+    [disabled, handleFiles]
   );
 
   const handleDragOver = useCallback(
@@ -109,14 +111,12 @@ export function FileUploader({
 
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) {
-        handleFile(file);
-      }
+      const files = Array.from(e.target.files ?? []);
+      handleFiles(files);
       // Reset input so the same file can be selected again
       e.target.value = "";
     },
-    [handleFile]
+    [handleFiles]
   );
 
   return (
@@ -136,6 +136,7 @@ export function FileUploader({
         >
           <input
             type="file"
+            multiple
             accept={accept}
             onChange={handleInputChange}
             disabled={disabled}
@@ -164,10 +165,10 @@ export function FileUploader({
 
             <div>
               <p className="text-lg font-medium">
-                {isDragging ? "Drop your statement here" : "Upload your statement"}
+                {isDragging ? "Drop your statements here" : "Upload your statements"}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Drag and drop a Robinhood Derivatives PDF or click to browse
+                Drag and drop Robinhood Derivatives PDFs or click to browse
               </p>
             </div>
 
