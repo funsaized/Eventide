@@ -490,7 +490,7 @@ const POSITION_CTE_BODY = `
   ) cp_agg ON cp_agg.symbol = t.symbol`;
 
 function buildPositionCte(tradeWhere: string): string {
-  return `WITH position_groups AS (${POSITION_CTE_BODY} ${tradeWhere} GROUP BY t.symbol  -- Single-account app; safe without account_id)`;
+  return `WITH position_groups AS (${POSITION_CTE_BODY} ${tradeWhere} GROUP BY t.symbol)`;
 }
 
 /**
