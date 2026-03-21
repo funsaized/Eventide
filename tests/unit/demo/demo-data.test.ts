@@ -6,28 +6,50 @@
 
 import { describe, it, expect } from "vitest";
 import {
+  DEMO_IMPORT_IDS,
+  DEMO_MONTHS,
   DEMO_TRADES,
   DEMO_IMPORT_ID,
   DEMO_ACCOUNT_NUMBER,
   calculateTradePnl,
+  generatePairedTrades,
   getDemoSummary,
 } from "@/lib/demo/demo-data";
 
 describe("Demo Data", () => {
   describe("trade count", () => {
-    it("should have approximately 50 trades", () => {
-      expect(DEMO_TRADES.length).toBeGreaterThanOrEqual(40);
-      expect(DEMO_TRADES.length).toBeLessThanOrEqual(60);
+    it("should have approximately 60-70 trades", () => {
+      expect(DEMO_TRADES.length).toBeGreaterThanOrEqual(60);
+      expect(DEMO_TRADES.length).toBeLessThanOrEqual(75);
     });
   });
 
   describe("constants", () => {
-    it("should have a demo import ID", () => {
-      expect(DEMO_IMPORT_ID).toBe("demo-import-001");
+    it("should have a backwards-compatible demo import ID alias", () => {
+      expect(DEMO_IMPORT_ID).toBe("demo-import-aug");
     });
 
     it("should have a demo account number", () => {
       expect(DEMO_ACCOUNT_NUMBER).toBe("DEMO-000000");
+    });
+
+    it("should define 4 demo months from Aug-Nov 2024", () => {
+      expect(DEMO_MONTHS).toHaveLength(4);
+      expect(DEMO_MONTHS[0]?.importId).toBe("demo-import-aug");
+      expect(DEMO_MONTHS[1]?.importId).toBe("demo-import-sep");
+      expect(DEMO_MONTHS[2]?.importId).toBe("demo-import-oct");
+      expect(DEMO_MONTHS[3]?.importId).toBe("demo-import-nov");
+      expect(DEMO_MONTHS[0]?.periodStart).toBe("2024-08-01");
+      expect(DEMO_MONTHS[3]?.periodEnd).toBe("2024-11-30");
+    });
+
+    it("should expose demo import IDs for all months", () => {
+      expect(DEMO_IMPORT_IDS).toEqual([
+        "demo-import-aug",
+        "demo-import-sep",
+        "demo-import-oct",
+        "demo-import-nov",
+      ]);
     });
   });
 
@@ -82,10 +104,29 @@ describe("Demo Data", () => {
     });
   });
 
+  describe("monthly structure", () => {
+    it("trades should span 4 months (Aug-Nov 2024)", () => {
+      const months = new Set(DEMO_TRADES.map((t) => t.date.slice(0, 7)));
+      expect(months).toEqual(new Set(["2024-08", "2024-09", "2024-10", "2024-11"]));
+    });
+
+    it("each month should have at least 10 trades", () => {
+      const tradeCounts = DEMO_TRADES.reduce<Record<string, number>>((counts, trade) => {
+        counts[trade.importId] = (counts[trade.importId] ?? 0) + 1;
+        return counts;
+      }, {});
+
+      for (const month of DEMO_MONTHS) {
+        expect(tradeCounts[month.importId] ?? 0).toBeGreaterThanOrEqual(10);
+      }
+    });
+  });
+
   describe("P&L calculation", () => {
     it("should calculate YES wins correctly", () => {
       // YES side, settled at 1.00: (1.00 - price) * qty
       const pnl = calculateTradePnl({
+        importId: "demo-import-aug",
         date: "2024-01-01",
         symbol: "TEST",
         side: "YES",
@@ -102,6 +143,7 @@ describe("Demo Data", () => {
     it("should calculate YES losses correctly", () => {
       // YES side, settled at 0.00: (0.00 - price) * qty
       const pnl = calculateTradePnl({
+        importId: "demo-import-aug",
         date: "2024-01-01",
         symbol: "TEST",
         side: "YES",
@@ -118,6 +160,7 @@ describe("Demo Data", () => {
     it("should calculate NO wins correctly", () => {
       // NO side, settled at 0.00: ((1 - 0.00) - price) * qty = (1 - price) * qty
       const pnl = calculateTradePnl({
+        importId: "demo-import-aug",
         date: "2024-01-01",
         symbol: "TEST",
         side: "NO",
@@ -133,6 +176,7 @@ describe("Demo Data", () => {
 
     it("should return null for unsettled trades", () => {
       const pnl = calculateTradePnl({
+        importId: "demo-import-aug",
         date: "2024-01-01",
         symbol: "TEST",
         side: "YES",
@@ -154,7 +198,7 @@ describe("Demo Data", () => {
         const pnl = calculateTradePnl(t);
         return sum + (pnl ?? 0);
       }, 0);
-      expect(nflPnl).toBeGreaterThan(100); // Significantly profitable
+      expect(nflPnl).toBeGreaterThan(100);
     });
 
     it("Economics should be net negative", () => {
@@ -187,6 +231,48 @@ describe("Demo Data", () => {
     });
   });
 
+  describe("generatePairedTrades", () => {
+    it("should produce 2 trades per settled position", () => {
+      const paired = generatePairedTrades();
+      const settledPositions = DEMO_TRADES.filter((t) => t.settlementDate !== null);
+      expect(paired.length).toBe(settledPositions.length * 2);
+    });
+
+    it("each symbol should have both YES and NO sides", () => {
+      const paired = generatePairedTrades();
+      const symbolSides = new Map<string, Set<string>>();
+      for (const trade of paired) {
+        const sides = symbolSides.get(trade.symbol) ?? new Set();
+        sides.add(trade.side);
+        symbolSides.set(trade.symbol, sides);
+      }
+      for (const [, sides] of symbolSides) {
+        expect(sides.size).toBe(2);
+      }
+    });
+
+    it("opening legs should have no settlement", () => {
+      const paired = generatePairedTrades();
+      const openLegs = paired.filter((t) => t.settlementDate === null);
+      expect(openLegs.length).toBeGreaterThan(0);
+      for (const leg of openLegs) {
+        expect(leg.settlementPrice).toBeNull();
+      }
+    });
+
+    it("settlement legs should have opposite side from the position", () => {
+      const paired = generatePairedTrades();
+      for (const position of DEMO_TRADES) {
+        if (!position.settlementDate) continue;
+        const oppositeSide = position.side === "YES" ? "NO" : "YES";
+        const settlementLeg = paired.find(
+          (t) => t.symbol === position.symbol && t.side === oppositeSide && t.settlementDate !== null
+        );
+        expect(settlementLeg).toBeDefined();
+      }
+    });
+  });
+
   describe("getDemoSummary", () => {
     it("should return coherent summary", () => {
       const summary = getDemoSummary();
@@ -196,6 +282,7 @@ describe("Demo Data", () => {
       expect(summary.wins).toBeGreaterThan(0);
       expect(summary.losses).toBeGreaterThan(0);
       expect(summary.wins + summary.losses).toBe(summary.tradeCount);
+      expect(summary.totalGrossPnl - summary.totalFees).toBeCloseTo(summary.netPnl);
       expect(summary.winRate).toBeGreaterThan(0);
       expect(summary.winRate).toBeLessThan(1);
     });

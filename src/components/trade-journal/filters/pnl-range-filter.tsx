@@ -6,7 +6,7 @@
  * Uses two number inputs for specifying a P&L range.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,14 +31,16 @@ export function PnLRangeFilter({
   const [localMin, setLocalMin] = useState(minPnl?.toString() ?? "");
   const [localMax, setLocalMax] = useState(maxPnl?.toString() ?? "");
 
-  // Sync external state to local
-  useEffect(() => {
-    setLocalMin(minPnl?.toString() ?? "");
-  }, [minPnl]);
-
-  useEffect(() => {
-    setLocalMax(maxPnl?.toString() ?? "");
-  }, [maxPnl]);
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      setOpen(nextOpen);
+      if (nextOpen) {
+        setLocalMin(minPnl?.toString() ?? "");
+        setLocalMax(maxPnl?.toString() ?? "");
+      }
+    },
+    [minPnl, maxPnl]
+  );
 
   const apply = useCallback(() => {
     const min = localMin === "" ? null : parseFloat(localMin);
@@ -55,7 +57,7 @@ export function PnLRangeFilter({
     : "P&L range";
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

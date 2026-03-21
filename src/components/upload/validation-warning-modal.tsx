@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/format";
 
 export interface ValidationFailure {
   symbol: string;
@@ -34,11 +35,6 @@ export interface ValidationWarningModalProps {
   onCancel: () => void;
   /** Callback when user proceeds anyway */
   onProceed: () => void;
-}
-
-function formatCurrency(value: number): string {
-  const sign = value < 0 ? "-" : "";
-  return `${sign}$${Math.abs(value).toFixed(2)}`;
 }
 
 export function ValidationWarningModal({

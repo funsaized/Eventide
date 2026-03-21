@@ -1,49 +1,35 @@
 "use client";
 
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/state/query-client";
-import { getPositionsForJournal, getTradesForPosition } from "@/lib/db/queries/trades";
+import {
+  getPositionsForJournal,
+  getPositionJournalTotals,
+  getTradesForPosition,
+} from "@/lib/db/queries/trades";
 import { useFilterStore } from "@/lib/state/stores";
-import type { SortOptions, TradeFilter } from "@/lib/db/types";
+import { useTradeFilter, toSortOptions } from "./use-trade-filter";
 import type { SortingState } from "@tanstack/react-table";
-
-function toSortOptions(sorting: SortingState): SortOptions | undefined {
-  if (sorting.length === 0) return undefined;
-  const first = sorting[0];
-  return {
-    field: first.id,
-    direction: first.desc ? "desc" : "asc",
-  };
-}
 
 export function usePositionsData(sorting: SortingState) {
   const page = useFilterStore((s) => s.page);
   const pageSize = useFilterStore((s) => s.pageSize);
-  const dateRange = useFilterStore((s) => s.dateRange);
-  const categories = useFilterStore((s) => s.categories);
-  const symbols = useFilterStore((s) => s.symbols);
-  const minPnl = useFilterStore((s) => s.minPnl);
-  const maxPnl = useFilterStore((s) => s.maxPnl);
-  const status = useFilterStore((s) => s.status);
-
-  const filter: TradeFilter = useMemo(
-    () => ({
-      dateRange: dateRange ?? undefined,
-      categories: categories.length > 0 ? categories : undefined,
-      symbols: symbols.length > 0 ? symbols : undefined,
-      minPnl: minPnl ?? undefined,
-      maxPnl: maxPnl ?? undefined,
-      status,
-    }),
-    [dateRange, categories, symbols, minPnl, maxPnl, status]
-  );
-
+  const filter = useTradeFilter();
   const sort = toSortOptions(sorting);
 
   return useQuery({
     queryKey: queryKeys.positions.journal.list({ filter, page, pageSize, sort }),
     queryFn: () => getPositionsForJournal(filter, { page, pageSize }, sort),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function usePositionTotals() {
+  const filter = useTradeFilter();
+
+  return useQuery({
+    queryKey: queryKeys.positions.journal.totals({ filter }),
+    queryFn: () => getPositionJournalTotals(filter),
     staleTime: 60 * 1000,
   });
 }

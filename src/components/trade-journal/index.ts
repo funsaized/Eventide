@@ -13,3 +13,5 @@ export { FilterChip } from "./filters";
 export { PositionTable, type PositionTableProps } from "./position-table";
 export { createPositionColumns } from "./position-columns";
 export { PositionRowDetail } from "./position-row-detail";
+export { SortIndicator } from "./sort-indicator";
+export { PaginationControls, type PaginationControlsProps } from "./pagination-controls";

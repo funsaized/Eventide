@@ -1,16 +1,22 @@
 /**
- * Demo Data - Curated Trades
+ * Demo Data - Curated Monthly Story (Aug-Nov 2024)
  *
- * ~50 trades covering key narrative scenarios:
- * 1. Profitable NFL betting ($500+ profit over 20 trades)
- * 2. Losing streak in Economics category (-$200 over 8 trades)
- * 3. Mixed Tennis results (break-even with high volume)
- * 4. Single big win in Politics ($300 on one trade)
- * 5. Fee drag example (many small trades eating into profits)
- * 6. NCAAF college football trades
+ * Narrative arc:
+ * - Aug: strong start (NFL + tennis qualifiers)
+ * - Sep: best trading month (NFL season open + mixed NCAAF)
+ * - Oct: pullback (NFL volatility + macro misses)
+ * - Nov: recovery (large politics win + steadier NFL)
  */
 
+export interface DemoMonth {
+  importId: string;
+  statementDate: string;
+  periodStart: string;
+  periodEnd: string;
+}
+
 export interface DemoTrade {
+  importId: string;
   date: string;
   symbol: string;
   side: "YES" | "NO";
@@ -24,120 +30,170 @@ export interface DemoTrade {
 
 export const DEMO_ACCOUNT_NUMBER = "DEMO-000000";
 export const DEMO_PLATFORM = "robinhood" as const;
-export const DEMO_IMPORT_ID = "demo-import-001";
-export const DEMO_STATEMENT_DATE = "2024-06-30";
-export const DEMO_PERIOD_START = "2024-01-01";
-export const DEMO_PERIOD_END = "2024-06-30";
+
+export const DEMO_MONTHS: DemoMonth[] = [
+  {
+    importId: "demo-import-aug",
+    statementDate: "2024-08-31",
+    periodStart: "2024-08-01",
+    periodEnd: "2024-08-31",
+  },
+  {
+    importId: "demo-import-sep",
+    statementDate: "2024-09-30",
+    periodStart: "2024-09-01",
+    periodEnd: "2024-09-30",
+  },
+  {
+    importId: "demo-import-oct",
+    statementDate: "2024-10-31",
+    periodStart: "2024-10-01",
+    periodEnd: "2024-10-31",
+  },
+  {
+    importId: "demo-import-nov",
+    statementDate: "2024-11-30",
+    periodStart: "2024-11-01",
+    periodEnd: "2024-11-30",
+  },
+];
+
+export const DEMO_IMPORT_IDS = DEMO_MONTHS.map((month) => month.importId);
+
+export const DEMO_IMPORT_ID = DEMO_MONTHS[0].importId;
+
+export const DEMO_STATEMENT_DATE = DEMO_MONTHS[0].statementDate;
+export const DEMO_PERIOD_START = DEMO_MONTHS[0].periodStart;
+export const DEMO_PERIOD_END = DEMO_MONTHS[0].periodEnd;
+
+export const DEMO_TRADES: DemoTrade[] = [
+  // ============================================================================
+  // AUG 2024 (demo-import-aug) - Strong start
+  // ============================================================================
+  { importId: "demo-import-aug", date: "2024-08-03", symbol: "KXNFLGAME-24AUG03KCBAL-KC", side: "YES", quantity: 120, price: 0.57, fees: 1.2, category: "NFL", settlementDate: "2024-08-04", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-05", symbol: "KXNFP-24AUG-ABOVE175K", side: "YES", quantity: 50, price: 0.55, fees: 0.5, category: "Economics", settlementDate: "2024-08-06", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-08", symbol: "KXNFLGAME-24AUG08BUFLAR-BUF", side: "NO", quantity: 90, price: 0.41, fees: 0.9, category: "NFL", settlementDate: "2024-08-09", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-09", symbol: "KXWEATHER-24AUG09HEAT-NY", side: "YES", quantity: 20, price: 0.47, fees: 0.95, category: "Weather", settlementDate: "2024-08-10", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-12", symbol: "KXNFLGAME-24AUG12DALCLE-DAL", side: "YES", quantity: 80, price: 0.63, fees: 0.8, category: "NFL", settlementDate: "2024-08-13", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-14", symbol: "KXCPI-24AUG-ABOVE32", side: "YES", quantity: 70, price: 0.66, fees: 0.7, category: "Economics", settlementDate: "2024-08-15", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-18", symbol: "KXNFLGAME-24AUG18SFSEA-SF", side: "YES", quantity: 100, price: 0.54, fees: 1.0, category: "NFL", settlementDate: "2024-08-19", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-20", symbol: "KXUSOPENQ-24AUG20-SINNER", side: "YES", quantity: 180, price: 0.62, fees: 1.8, category: "Tennis", settlementDate: "2024-08-21", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-21", symbol: "KXUSOPENQ-24AUG21-MEDVEDEV", side: "YES", quantity: 150, price: 0.58, fees: 1.5, category: "Tennis", settlementDate: "2024-08-22", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-22", symbol: "KXNFLGAME-24AUG22PHIGB-PHI", side: "YES", quantity: 70, price: 0.59, fees: 0.7, category: "NFL", settlementDate: "2024-08-23", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-24", symbol: "KXWEATHER-24AUG24RAIN-BOS", side: "NO", quantity: 18, price: 0.44, fees: 0.95, category: "Weather", settlementDate: "2024-08-25", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-26", symbol: "KXNFLGAME-24AUG26MIAJAX-MIA", side: "NO", quantity: 60, price: 0.36, fees: 0.6, category: "NFL", settlementDate: "2024-08-27", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-27", symbol: "KXWEATHER-24AUG27STORM-CHI", side: "YES", quantity: 15, price: 0.52, fees: 0.9, category: "Weather", settlementDate: "2024-08-28", settlementPrice: 0.0 },
+  { importId: "demo-import-aug", date: "2024-08-28", symbol: "KXFEDRATE-24SEP-CUT", side: "NO", quantity: 60, price: 0.38, fees: 0.6, category: "Economics", settlementDate: "2024-08-29", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-30", symbol: "KXNFLGAME-24AUG30KCCIN-KC", side: "YES", quantity: 110, price: 0.52, fees: 1.1, category: "NFL", settlementDate: "2024-08-31", settlementPrice: 1.0 },
+  { importId: "demo-import-aug", date: "2024-08-31", symbol: "KXNFLPRE-24AUG31NYJNE-NE", side: "NO", quantity: 75, price: 0.46, fees: 0.75, category: "NFL", settlementDate: "2024-09-01", settlementPrice: 0.0 },
+
+  // ============================================================================
+  // SEP 2024 (demo-import-sep) - Best month
+  // ============================================================================
+  { importId: "demo-import-sep", date: "2024-09-03", symbol: "KXNFLGAME-24SEP03KCBAL-KC", side: "YES", quantity: 140, price: 0.56, fees: 1.4, category: "NFL", settlementDate: "2024-09-04", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-05", symbol: "KXCPI-24SEP-BELOW30", side: "YES", quantity: 70, price: 0.61, fees: 0.7, category: "Economics", settlementDate: "2024-09-06", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-06", symbol: "KXNFLGAME-24SEP06DALCLE-DAL", side: "YES", quantity: 95, price: 0.62, fees: 0.95, category: "NFL", settlementDate: "2024-09-07", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-07", symbol: "KXNCAAFGAME-24SEP07UGATENN-UGA", side: "YES", quantity: 100, price: 0.58, fees: 1.0, category: "NCAAF", settlementDate: "2024-09-08", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-08", symbol: "KXUSOPEN-24SEP08-SINNER", side: "YES", quantity: 200, price: 0.52, fees: 2.0, category: "Tennis", settlementDate: "2024-09-09", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-08", symbol: "KXUSOPEN-24SEP08-FRITZ", side: "YES", quantity: 200, price: 0.48, fees: 2.0, category: "Tennis", settlementDate: "2024-09-09", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-10", symbol: "KXNFLGAME-24SEP10SFPHI-SF", side: "YES", quantity: 110, price: 0.53, fees: 1.1, category: "NFL", settlementDate: "2024-09-11", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-12", symbol: "KXFEDRATE-24SEP-HOLD", side: "YES", quantity: 75, price: 0.64, fees: 0.75, category: "Economics", settlementDate: "2024-09-13", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-14", symbol: "KXNCAAFGAME-24SEP14CLEMGT-CLEM", side: "YES", quantity: 90, price: 0.65, fees: 0.9, category: "NCAAF", settlementDate: "2024-09-15", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-15", symbol: "KXNFLGAME-24SEP15BUFTB-BUF", side: "YES", quantity: 100, price: 0.72, fees: 1.0, category: "NFL", settlementDate: "2024-09-16", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-18", symbol: "KXNFLGAME-24SEP18KCATL-KC", side: "YES", quantity: 120, price: 0.57, fees: 1.2, category: "NFL", settlementDate: "2024-09-19", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-20", symbol: "KXWEATHER-24SEP20WIND-DEN", side: "YES", quantity: 14, price: 0.49, fees: 0.9, category: "Weather", settlementDate: "2024-09-21", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-21", symbol: "KXNCAAFGAME-24SEP21OSUORE-OSU", side: "YES", quantity: 130, price: 0.52, fees: 1.3, category: "NCAAF", settlementDate: "2024-09-22", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-24", symbol: "KXNFLGAME-24SEP24DALNYG-DAL", side: "NO", quantity: 90, price: 0.37, fees: 0.9, category: "NFL", settlementDate: "2024-09-25", settlementPrice: 0.0 },
+  { importId: "demo-import-sep", date: "2024-09-27", symbol: "KXNFLGAME-24SEP27MIABUF-BUF", side: "YES", quantity: 100, price: 0.51, fees: 1.0, category: "NFL", settlementDate: "2024-09-28", settlementPrice: 1.0 },
+  { importId: "demo-import-sep", date: "2024-09-30", symbol: "KXNFLGAME-24SEP30SEASF-SEA", side: "NO", quantity: 85, price: 0.42, fees: 0.85, category: "NFL", settlementDate: "2024-10-01", settlementPrice: 1.0 },
+
+  // ============================================================================
+  // OCT 2024 (demo-import-oct) - Pullback
+  // ============================================================================
+  { importId: "demo-import-oct", date: "2024-10-01", symbol: "KXNFLGAME-24OCT01KCNO-KC", side: "YES", quantity: 140, price: 0.74, fees: 1.4, category: "NFL", settlementDate: "2024-10-02", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-02", symbol: "KXCPI-24OCT-BELOW29", side: "YES", quantity: 90, price: 0.68, fees: 0.9, category: "Economics", settlementDate: "2024-10-03", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-04", symbol: "KXNFLGAME-24OCT04DALPIT-DAL", side: "YES", quantity: 110, price: 0.61, fees: 1.1, category: "NFL", settlementDate: "2024-10-05", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-05", symbol: "KXNCAAFGAME-24OCT05BAMATEX-BAMA", side: "YES", quantity: 100, price: 0.59, fees: 1.0, category: "NCAAF", settlementDate: "2024-10-06", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-07", symbol: "KXNFLGAME-24OCT07MIAJAX-MIA", side: "NO", quantity: 100, price: 0.38, fees: 1.0, category: "NFL", settlementDate: "2024-10-08", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-09", symbol: "KXPOLLSENATE-24OCT09-AZDEM", side: "YES", quantity: 180, price: 0.62, fees: 1.8, category: "Politics", settlementDate: "2024-10-10", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-10", symbol: "KXWEATHER-24OCT10FROST-MSP", side: "YES", quantity: 12, price: 0.55, fees: 0.9, category: "Weather", settlementDate: "2024-10-11", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-12", symbol: "KXNFLGAME-24OCT12BUFNYJ-BUF", side: "YES", quantity: 120, price: 0.64, fees: 1.2, category: "NFL", settlementDate: "2024-10-13", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-14", symbol: "KXNCAAFGAME-24OCT14MIICHI-MICH", side: "YES", quantity: 110, price: 0.57, fees: 1.1, category: "NCAAF", settlementDate: "2024-10-15", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-16", symbol: "KXNFLGAME-24OCT16PHIATL-PHI", side: "YES", quantity: 105, price: 0.67, fees: 1.05, category: "NFL", settlementDate: "2024-10-17", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-18", symbol: "KXNFP-24OCT-ABOVE250K", side: "YES", quantity: 75, price: 0.63, fees: 0.75, category: "Economics", settlementDate: "2024-10-19", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-19", symbol: "KXNFLGAME-24OCT19KCNE-KC", side: "YES", quantity: 120, price: 0.55, fees: 1.2, category: "NFL", settlementDate: "2024-10-20", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-22", symbol: "KXWEATHER-24OCT22RAIN-SEA", side: "NO", quantity: 16, price: 0.43, fees: 0.9, category: "Weather", settlementDate: "2024-10-23", settlementPrice: 1.0 },
+  { importId: "demo-import-oct", date: "2024-10-25", symbol: "KXNCAAFGAME-24OCT25LSUALA-ALA", side: "NO", quantity: 100, price: 0.45, fees: 1.0, category: "NCAAF", settlementDate: "2024-10-26", settlementPrice: 0.0 },
+  { importId: "demo-import-oct", date: "2024-10-29", symbol: "KXNFLGAME-24OCT29DALPHI-PHI", side: "NO", quantity: 95, price: 0.41, fees: 0.95, category: "NFL", settlementDate: "2024-10-30", settlementPrice: 1.0 },
+
+  // ============================================================================
+  // NOV 2024 (demo-import-nov) - Recovery
+  // ============================================================================
+  { importId: "demo-import-nov", date: "2024-11-02", symbol: "KXNFLGAME-24NOV02KCDEN-KC", side: "YES", quantity: 140, price: 0.49, fees: 1.4, category: "NFL", settlementDate: "2024-11-03", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-03", symbol: "KXNCAAFGAME-24NOV03UGAFLA-UGA", side: "YES", quantity: 110, price: 0.61, fees: 1.1, category: "NCAAF", settlementDate: "2024-11-04", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-04", symbol: "KXCPI-24NOV-BELOW28", side: "YES", quantity: 90, price: 0.59, fees: 0.9, category: "Economics", settlementDate: "2024-11-05", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-05", symbol: "KXNFLGAME-24NOV05BUFNYJ-BUF", side: "NO", quantity: 120, price: 0.36, fees: 1.2, category: "NFL", settlementDate: "2024-11-06", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-06", symbol: "KXWEATHER-24NOV06SNOW-DEN", side: "YES", quantity: 15, price: 0.53, fees: 0.95, category: "Weather", settlementDate: "2024-11-07", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-08", symbol: "KXNFLGAME-24NOV08PHIDAL-PHI", side: "YES", quantity: 120, price: 0.58, fees: 1.2, category: "NFL", settlementDate: "2024-11-09", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-10", symbol: "KXNFLGAME-24NOV10MIAKC-KC", side: "YES", quantity: 130, price: 0.44, fees: 1.3, category: "NFL", settlementDate: "2024-11-11", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-12", symbol: "KXPRES-24NOV12-DEMWINPV", side: "YES", quantity: 900, price: 0.61, fees: 9.0, category: "Politics", settlementDate: "2024-11-13", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-13", symbol: "KXNFP-24NOV-ABOVE220K", side: "NO", quantity: 80, price: 0.46, fees: 0.8, category: "Economics", settlementDate: "2024-11-14", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-15", symbol: "KXNCAAFGAME-24NOV15OSUMICH-OSU", side: "YES", quantity: 100, price: 0.66, fees: 1.0, category: "NCAAF", settlementDate: "2024-11-16", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-18", symbol: "KXNFLGAME-24NOV18SFSEA-SF", side: "NO", quantity: 95, price: 0.39, fees: 0.95, category: "NFL", settlementDate: "2024-11-19", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-20", symbol: "KXNCAAFGAME-24NOV20TEXAM-TEX", side: "YES", quantity: 110, price: 0.56, fees: 1.1, category: "NCAAF", settlementDate: "2024-11-21", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-22", symbol: "KXWEATHER-24NOV22WIND-CHI", side: "NO", quantity: 18, price: 0.42, fees: 0.95, category: "Weather", settlementDate: "2024-11-23", settlementPrice: 1.0 },
+  { importId: "demo-import-nov", date: "2024-11-25", symbol: "KXNFLGAME-24NOV25DALWAS-DAL", side: "YES", quantity: 130, price: 0.51, fees: 1.3, category: "NFL", settlementDate: "2024-11-26", settlementPrice: 0.0 },
+  { importId: "demo-import-nov", date: "2024-11-29", symbol: "KXNFLGAME-24NOV29KCGB-KC", side: "YES", quantity: 140, price: 0.54, fees: 1.4, category: "NFL", settlementDate: "2024-11-30", settlementPrice: 1.0 },
+];
 
 /**
- * Curated demo trades
+ * Expand single-entry positions into paired open/settlement trades.
+ * Each DEMO_TRADES entry becomes:
+ *   1. Opening leg: same side as the bet, no settlement (status = Open)
+ *   2. Settlement leg: opposite side, with settlement (status = Closed)
+ *
+ * Mirrors how Robinhood reports trades: closing a YES position shows as buying NO,
+ * and closing a NO position shows as buying YES.
  */
-export const DEMO_TRADES: DemoTrade[] = [
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 1: Profitable NFL betting ($500+ profit, 18 trades)
-  // ═══════════════════════════════════════════════════════════════════════════
+export function generatePairedTrades(): DemoTrade[] {
+  const paired: DemoTrade[] = [];
 
-  // NFL Playoff win - YES on BUF, settled YES
-  { date: "2024-01-06", symbol: "KXNFLGAME-24JAN06BUFKC-BUF", side: "YES", quantity: 100, price: 0.65, fees: 1.00, category: "NFL", settlementDate: "2024-01-07", settlementPrice: 1.00 },
-  // NFL Playoff win - YES on SF, settled YES
-  { date: "2024-01-13", symbol: "KXNFLGAME-24JAN13SFDET-SF", side: "YES", quantity: 80, price: 0.55, fees: 0.80, category: "NFL", settlementDate: "2024-01-14", settlementPrice: 1.00 },
-  // NFL small win
-  { date: "2024-01-20", symbol: "KXNFLGAME-24JAN20KCSF-KC", side: "YES", quantity: 50, price: 0.60, fees: 0.50, category: "NFL", settlementDate: "2024-01-21", settlementPrice: 1.00 },
-  // NFL loss - YES on DAL, settled NO
-  { date: "2024-01-21", symbol: "KXNFLGAME-24JAN21DALPH-DAL", side: "YES", quantity: 40, price: 0.70, fees: 0.40, category: "NFL", settlementDate: "2024-01-22", settlementPrice: 0.00 },
-  // Super Bowl win
-  { date: "2024-02-11", symbol: "KXSUPERBOWL-24FEB11-KC", side: "YES", quantity: 150, price: 0.52, fees: 1.50, category: "NFL", settlementDate: "2024-02-12", settlementPrice: 1.00 },
-  // NFL Draft pick correct
-  { date: "2024-04-25", symbol: "KXNFLDRAFT-24APR25-PICK1", side: "YES", quantity: 60, price: 0.80, fees: 0.60, category: "NFL", settlementDate: "2024-04-26", settlementPrice: 1.00 },
-  // Week 1 wins
-  { date: "2024-09-05", symbol: "KXNFLGAME-24SEP05KCBAL-KC", side: "YES", quantity: 100, price: 0.55, fees: 1.00, category: "NFL", settlementDate: "2024-09-06", settlementPrice: 1.00 },
-  { date: "2024-09-08", symbol: "KXNFLGAME-24SEP08DALCLE-DAL", side: "YES", quantity: 75, price: 0.62, fees: 0.75, category: "NFL", settlementDate: "2024-09-09", settlementPrice: 1.00 },
-  // NFL loss
-  { date: "2024-09-15", symbol: "KXNFLGAME-24SEP15BUFTB-BUF", side: "YES", quantity: 80, price: 0.72, fees: 0.80, category: "NFL", settlementDate: "2024-09-16", settlementPrice: 0.00 },
-  // NFL win
-  { date: "2024-09-22", symbol: "KXNFLGAME-24SEP22KCATL-KC", side: "YES", quantity: 100, price: 0.58, fees: 1.00, category: "NFL", settlementDate: "2024-09-23", settlementPrice: 1.00 },
-  // MNF win
-  { date: "2024-09-30", symbol: "KXNFLGAME-24SEP30DALNYG-DAL", side: "NO", quantity: 60, price: 0.35, fees: 0.60, category: "NFL", settlementDate: "2024-10-01", settlementPrice: 0.00 },
-  // NFL losses
-  { date: "2024-10-06", symbol: "KXNFLGAME-24OCT06SFARI-SF", side: "YES", quantity: 50, price: 0.65, fees: 0.50, category: "NFL", settlementDate: "2024-10-07", settlementPrice: 0.00 },
-  // NFL win
-  { date: "2024-10-13", symbol: "KXNFLGAME-24OCT13KCDEN-KC", side: "YES", quantity: 120, price: 0.48, fees: 1.20, category: "NFL", settlementDate: "2024-10-14", settlementPrice: 1.00 },
-  // TNF win
-  { date: "2024-10-17", symbol: "KXNFLGAME-24OCT17DENWAS-DEN", side: "NO", quantity: 80, price: 0.40, fees: 0.80, category: "NFL", settlementDate: "2024-10-18", settlementPrice: 0.00 },
-  // NFL close wins
-  { date: "2024-10-20", symbol: "KXNFLGAME-24OCT20PHINYJ-PHI", side: "YES", quantity: 90, price: 0.68, fees: 0.90, category: "NFL", settlementDate: "2024-10-21", settlementPrice: 1.00 },
-  { date: "2024-10-27", symbol: "KXNFLGAME-24OCT27DALHOU-DAL", side: "YES", quantity: 70, price: 0.55, fees: 0.70, category: "NFL", settlementDate: "2024-10-28", settlementPrice: 1.00 },
-  // NFL loss
-  { date: "2024-11-03", symbol: "KXNFLGAME-24NOV03KCTB-KC", side: "YES", quantity: 85, price: 0.75, fees: 0.85, category: "NFL", settlementDate: "2024-11-04", settlementPrice: 0.00 },
-  // NFL big win
-  { date: "2024-11-10", symbol: "KXNFLGAME-24NOV10BUFMIA-BUF", side: "YES", quantity: 100, price: 0.42, fees: 1.00, category: "NFL", settlementDate: "2024-11-11", settlementPrice: 1.00 },
+  for (const position of DEMO_TRADES) {
+    if (position.settlementDate === null) {
+      paired.push(position);
+      continue;
+    }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 2: Losing Economics streak (-$200, 8 trades)
-  // ═══════════════════════════════════════════════════════════════════════════
+    const oppositeSide: "YES" | "NO" = position.side === "YES" ? "NO" : "YES";
 
-  // CPI prediction wrong
-  { date: "2024-01-11", symbol: "KXCPI-24JAN-ABOVE", side: "YES", quantity: 50, price: 0.60, fees: 0.50, category: "Economics", settlementDate: "2024-01-12", settlementPrice: 0.00 },
-  // Fed rate wrong
-  { date: "2024-01-31", symbol: "KXFEDRATE-24JAN-CUT", side: "YES", quantity: 40, price: 0.45, fees: 0.40, category: "Economics", settlementDate: "2024-02-01", settlementPrice: 0.00 },
-  // GDP prediction wrong
-  { date: "2024-02-29", symbol: "KXGDP-24Q1-ABOVE3", side: "YES", quantity: 30, price: 0.55, fees: 0.30, category: "Economics", settlementDate: "2024-03-01", settlementPrice: 0.00 },
-  // Jobs correct (small win)
-  { date: "2024-03-08", symbol: "KXNFP-24MAR-ABOVE200K", side: "YES", quantity: 50, price: 0.70, fees: 0.50, category: "Economics", settlementDate: "2024-03-09", settlementPrice: 1.00 },
-  // CPI wrong again
-  { date: "2024-04-10", symbol: "KXCPI-24APR-BELOW3", side: "YES", quantity: 60, price: 0.65, fees: 0.60, category: "Economics", settlementDate: "2024-04-11", settlementPrice: 0.00 },
-  // Fed hold - wrong
-  { date: "2024-05-01", symbol: "KXFEDRATE-24MAY-CUT", side: "YES", quantity: 40, price: 0.30, fees: 0.40, category: "Economics", settlementDate: "2024-05-02", settlementPrice: 0.00 },
-  // Retail wrong
-  { date: "2024-05-15", symbol: "KXRETAILSALES-24MAY-UP", side: "YES", quantity: 35, price: 0.50, fees: 0.35, category: "Economics", settlementDate: "2024-05-16", settlementPrice: 0.00 },
-  // Jobs small win
-  { date: "2024-06-07", symbol: "KXNFP-24JUN-ABOVE150K", side: "YES", quantity: 45, price: 0.55, fees: 0.45, category: "Economics", settlementDate: "2024-06-08", settlementPrice: 1.00 },
+    // 1. Opening leg — the user's original bet, no settlement
+    paired.push({
+      ...position,
+      fees: 0,
+      settlementDate: null,
+      settlementPrice: null,
+    });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 3: Tennis break-even with high volume (8 trades)
-  // ═══════════════════════════════════════════════════════════════════════════
+    // 2. Settlement leg — opposite side, settlement price flipped for the other side
+    //    YES win (sp=1.00) → NO settlement at sp=0.00 (NO expired worthless)
+    //    YES loss (sp=0.00) → NO settlement at sp=1.00 (NO won)
+    const oppositeSettlement = position.settlementPrice === 1.0 ? 0.0 : 1.0;
+    paired.push({
+      importId: position.importId,
+      date: position.settlementDate,
+      symbol: position.symbol,
+      side: oppositeSide,
+      quantity: position.quantity,
+      price: Math.round((1 - position.price) * 10000) / 10000,
+      fees: position.fees,
+      category: position.category,
+      settlementDate: position.settlementDate,
+      settlementPrice: oppositeSettlement,
+    });
+  }
 
-  // Australian Open
-  { date: "2024-01-28", symbol: "KXAUSOPEN-24JAN28-SINNER", side: "YES", quantity: 200, price: 0.55, fees: 2.00, category: "Tennis", settlementDate: "2024-01-29", settlementPrice: 1.00 },
-  { date: "2024-01-28", symbol: "KXAUSOPEN-24JAN28-DJOK", side: "YES", quantity: 150, price: 0.70, fees: 1.50, category: "Tennis", settlementDate: "2024-01-29", settlementPrice: 0.00 },
-  // French Open
-  { date: "2024-06-09", symbol: "KXFRENCHOPEN-24JUN09-ALCARAZ", side: "YES", quantity: 180, price: 0.45, fees: 1.80, category: "Tennis", settlementDate: "2024-06-10", settlementPrice: 1.00 },
-  { date: "2024-06-09", symbol: "KXFRENCHOPEN-24JUN09-DJOK", side: "YES", quantity: 180, price: 0.52, fees: 1.80, category: "Tennis", settlementDate: "2024-06-10", settlementPrice: 0.00 },
-  // Wimbledon
-  { date: "2024-07-14", symbol: "KXWIMBLEDON-24JUL14-ALCARAZ", side: "YES", quantity: 250, price: 0.60, fees: 2.50, category: "Tennis", settlementDate: "2024-07-15", settlementPrice: 1.00 },
-  { date: "2024-07-14", symbol: "KXWIMBLEDON-24JUL14-DJOK", side: "YES", quantity: 250, price: 0.38, fees: 2.50, category: "Tennis", settlementDate: "2024-07-15", settlementPrice: 0.00 },
-  // US Open
-  { date: "2024-09-08", symbol: "KXUSOMEN-24SEP08-SINNER", side: "YES", quantity: 200, price: 0.52, fees: 2.00, category: "Tennis", settlementDate: "2024-09-09", settlementPrice: 1.00 },
-  { date: "2024-09-08", symbol: "KXUSOMEN-24SEP08-FRITZ", side: "YES", quantity: 200, price: 0.48, fees: 2.00, category: "Tennis", settlementDate: "2024-09-09", settlementPrice: 0.00 },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 4: Single big Politics win ($300)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  { date: "2024-03-05", symbol: "KXPRIMARY-24MAR05-TRUMP", side: "YES", quantity: 500, price: 0.40, fees: 5.00, category: "Politics", settlementDate: "2024-03-06", settlementPrice: 1.00 },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 5: Fee drag - many small trades (8 trades, small P&L eaten by fees)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  { date: "2024-02-05", symbol: "KXWEATHER-24FEB05-SNOW", side: "YES", quantity: 10, price: 0.50, fees: 1.00, category: "Weather", settlementDate: "2024-02-06", settlementPrice: 1.00 },
-  { date: "2024-02-12", symbol: "KXWEATHER-24FEB12-COLD", side: "YES", quantity: 10, price: 0.55, fees: 1.00, category: "Weather", settlementDate: "2024-02-13", settlementPrice: 0.00 },
-  { date: "2024-03-01", symbol: "KXWEATHER-24MAR01-RAIN", side: "YES", quantity: 15, price: 0.48, fees: 1.00, category: "Weather", settlementDate: "2024-03-02", settlementPrice: 1.00 },
-  { date: "2024-03-15", symbol: "KXWEATHER-24MAR15-WARM", side: "YES", quantity: 10, price: 0.60, fees: 1.00, category: "Weather", settlementDate: "2024-03-16", settlementPrice: 1.00 },
-  { date: "2024-04-01", symbol: "KXWEATHER-24APR01-STORM", side: "YES", quantity: 12, price: 0.52, fees: 1.00, category: "Weather", settlementDate: "2024-04-02", settlementPrice: 0.00 },
-  { date: "2024-04-15", symbol: "KXWEATHER-24APR15-HEAT", side: "YES", quantity: 10, price: 0.50, fees: 1.00, category: "Weather", settlementDate: "2024-04-16", settlementPrice: 1.00 },
-  { date: "2024-05-01", symbol: "KXWEATHER-24MAY01-TORNADO", side: "YES", quantity: 8, price: 0.45, fees: 1.00, category: "Weather", settlementDate: "2024-05-02", settlementPrice: 0.00 },
-  { date: "2024-05-15", symbol: "KXWEATHER-24MAY15-FLOOD", side: "YES", quantity: 10, price: 0.50, fees: 1.00, category: "Weather", settlementDate: "2024-05-16", settlementPrice: 1.00 },
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SCENARIO 6: NCAAF trades (college football)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  { date: "2024-09-07", symbol: "KXNCAAFGAME-24SEP07UGATENN-UGA", side: "YES", quantity: 100, price: 0.58, fees: 1.00, category: "NCAAF", settlementDate: "2024-09-08", settlementPrice: 1.00 },
-  { date: "2024-09-14", symbol: "KXNCAAFGAME-24SEP14CLEMGT-CLEM", side: "YES", quantity: 80, price: 0.65, fees: 0.80, category: "NCAAF", settlementDate: "2024-09-15", settlementPrice: 0.00 },
-  { date: "2024-09-21", symbol: "KXNCAAFGAME-24SEP21OSUORE-OSU", side: "YES", quantity: 120, price: 0.52, fees: 1.20, category: "NCAAF", settlementDate: "2024-09-22", settlementPrice: 1.00 },
-  { date: "2024-10-05", symbol: "KXNCAAFGAME-24OCT05BAMATEX-BAMA", side: "YES", quantity: 90, price: 0.60, fees: 0.90, category: "NCAAF", settlementDate: "2024-10-06", settlementPrice: 1.00 },
-];
+  return paired;
+}
 
 /**
  * Calculate P&L for a demo trade

@@ -7,13 +7,12 @@ import { FilterBar } from "@/components/trade-journal/filters";
 import { EmptyState } from "@/components/feedback/empty-state";
 import { ErrorState } from "@/components/feedback/error-state";
 import { TableSkeleton } from "@/components/feedback/skeleton-loaders";
-import { usePositionsData, useCategories } from "@/hooks";
+import { usePositionsData, usePositionTotals, useCategories, useTradeFilter } from "@/hooks";
 import { useHasData } from "@/hooks/use-dashboard-data";
 import { useFilterStore } from "@/lib/state/stores";
 import { getTradesForJournal } from "@/lib/db/queries/trades";
 import { exportTradesToCSV } from "@/lib/utils/csv-export";
 import type { SortingState } from "@tanstack/react-table";
-import type { TradeFilter } from "@/lib/db/types";
 
 export default function TradesPage() {
   const hasDataQuery = useHasData();
@@ -27,14 +26,9 @@ export default function TradesPage() {
   const setPageSize = useFilterStore((s) => s.setPageSize);
   const addCategory = useFilterStore((s) => s.addCategory);
 
-  const dateRange = useFilterStore((s) => s.dateRange);
-  const categories = useFilterStore((s) => s.categories);
-  const symbols = useFilterStore((s) => s.symbols);
-  const minPnl = useFilterStore((s) => s.minPnl);
-  const maxPnl = useFilterStore((s) => s.maxPnl);
-  const status = useFilterStore((s) => s.status);
-
+  const filter = useTradeFilter();
   const { data, isLoading, isError } = usePositionsData(sorting);
+  const totalsQuery = usePositionTotals();
   const categoriesQuery = useCategories();
 
   const handleCategoryClick = useCallback(
@@ -45,19 +39,11 @@ export default function TradesPage() {
   );
 
   const handleExport = useCallback(async () => {
-    const filter: TradeFilter = {
-      dateRange: dateRange ?? undefined,
-      categories: categories.length > 0 ? categories : undefined,
-      symbols: symbols.length > 0 ? symbols : undefined,
-      minPnl: minPnl ?? undefined,
-      maxPnl: maxPnl ?? undefined,
-      status,
-    };
     const result = await getTradesForJournal(filter, { page: 1, pageSize: 10000 });
     if (result.trades.length > 0) {
       exportTradesToCSV(result.trades);
     }
-  }, [dateRange, categories, symbols, minPnl, maxPnl, status]);
+  }, [filter]);
 
   if (isLoading || hasDataQuery.isLoading) {
     return (
@@ -140,6 +126,7 @@ export default function TradesPage() {
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             onCategoryClick={handleCategoryClick}
+            totals={totalsQuery.data}
           />
         </CardContent>
       </Card>

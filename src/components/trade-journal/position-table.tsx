@@ -12,24 +12,18 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { PositionJournalRow } from "@/lib/db/types";
+import type { PositionJournalRow, PositionJournalTotals } from "@/lib/db/types";
+import { PnLBadge } from "./pnl-badge";
 import { createPositionColumns } from "./position-columns";
 import { PositionRowDetail } from "./position-row-detail";
+import { SortIndicator } from "./sort-indicator";
+import { PaginationControls } from "./pagination-controls";
 
 interface PositionTableProps {
   data: PositionJournalRow[];
@@ -41,6 +35,7 @@ interface PositionTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onCategoryClick?: (category: string) => void;
+  totals?: PositionJournalTotals | null;
 }
 
 export function PositionTable({
@@ -53,6 +48,7 @@ export function PositionTable({
   onPageChange,
   onPageSizeChange,
   onCategoryClick,
+  totals,
 }: PositionTableProps) {
   const [expandedSymbols, setExpandedSymbols] = useState<
     Record<string, boolean>
@@ -87,9 +83,6 @@ export function PositionTable({
     manualPagination: true,
     pageCount,
   });
-
-  const startRow = (page - 1) * pageSize + 1;
-  const endRow = Math.min(page * pageSize, total);
 
   return (
     <div className="space-y-4">
@@ -172,99 +165,46 @@ export function PositionTable({
               </TableRow>
             )}
           </TableBody>
+          {totals && totals.position_count > 0 && (
+            <TableFooter>
+              <TableRow className="bg-muted/50 font-medium">
+                <TableCell />
+                <TableCell className="text-sm">
+                  Totals ({totals.position_count} positions)
+                </TableCell>
+                <TableCell />
+                <TableCell className="text-right">
+                  <PnLBadge value={totals.total_net_pnl} />
+                </TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell className="text-right font-mono tabular-nums text-sm">
+                  {totals.total_quantity}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-sm text-muted-foreground">
+                  ${totals.total_fees.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-sm">
+                  {totals.wins}W / {totals.losses}L
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          )}
         </Table>
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total > 0 ? (
-            <>
-              Showing {startRow}–{endRow} of {total} positions
-            </>
-          ) : (
-            "No positions"
-          )}
-        </p>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              Rows per page
-            </span>
-            <select
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            >
-              {[25, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onPageChange(1)}
-              disabled={page <= 1}
-              aria-label="First page"
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-
-            <span className="px-2 text-sm text-muted-foreground whitespace-nowrap">
-              Page {page} of {pageCount || 1}
-            </span>
-
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= pageCount}
-              aria-label="Next page"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onPageChange(pageCount)}
-              disabled={page >= pageCount}
-              aria-label="Last page"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <PaginationControls
+        page={page}
+        pageCount={pageCount}
+        pageSize={pageSize}
+        total={total}
+        label="positions"
+        onPageChange={onPageChange}
+        onPageSizeChange={onPageSizeChange}
+      />
     </div>
   );
-}
-
-function SortIndicator({ direction }: { direction: false | "asc" | "desc" }) {
-  if (direction === "asc") {
-    return <ArrowUp className="h-3.5 w-3.5" />;
-  }
-  if (direction === "desc") {
-    return <ArrowDown className="h-3.5 w-3.5" />;
-  }
-  return <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />;
 }
 
 export type { PositionTableProps };

@@ -306,6 +306,19 @@ export interface PositionJournalRow {
   status: "OPEN" | "CLOSED";
 }
 
+/**
+ * Aggregated totals across all filtered positions (no pagination)
+ */
+export interface PositionJournalTotals {
+  position_count: number;
+  total_net_pnl: number;
+  total_gross_pnl: number;
+  total_fees: number;
+  total_quantity: number;
+  wins: number;
+  losses: number;
+}
+
 // ============================================================================
 // FILTER TYPES
 // ============================================================================

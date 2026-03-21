@@ -7,19 +7,12 @@
  */
 
 import { cn } from "@/lib/utils";
+import { formatPnl } from "@/lib/format";
 
 interface PnLBadgeProps {
   /** P&L value in dollars, null for open positions */
   value: number | null;
   className?: string;
-}
-
-/**
- * Format a dollar value with sign prefix
- */
-function formatPnL(value: number): string {
-  const prefix = value >= 0 ? "+" : "";
-  return `${prefix}$${Math.abs(value).toFixed(2)}`;
 }
 
 export function PnLBadge({ value, className }: PnLBadgeProps) {
@@ -46,7 +39,7 @@ export function PnLBadge({ value, className }: PnLBadgeProps) {
         className
       )}
     >
-      {formatPnL(value)}
+      {formatPnl(value)}
     </span>
   );
 }

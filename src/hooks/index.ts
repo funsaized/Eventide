@@ -10,3 +10,4 @@ export * from "./use-settings-data";
 export * from "./use-toast";
 export * from "./use-positions-data";
 export * from "./use-trades-data";
+export * from "./use-trade-filter";

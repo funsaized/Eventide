@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface ImportPreviewData {
@@ -55,11 +56,6 @@ export interface ImportPreviewProps {
   filePreviews?: FilePreviewData[];
   /** Custom class name */
   className?: string;
-}
-
-function formatCurrency(value: number): string {
-  const sign = value < 0 ? "-" : "";
-  return `${sign}$${Math.abs(value).toFixed(2)}`;
 }
 
 function StatCard({

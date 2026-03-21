@@ -76,6 +76,8 @@ export const queryKeys = {
         [...queryKeys.positions.all, "journal", "list", filters ?? {}] as const,
       trades: (symbol: string) =>
         [...queryKeys.positions.all, "journal", "trades", symbol] as const,
+      totals: (filters?: Record<string, unknown>) =>
+        [...queryKeys.positions.all, "journal", "totals", filters ?? {}] as const,
     },
   },
 
