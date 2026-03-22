@@ -1,0 +1,53 @@
+[
+  {
+    "adapter": "JavaScript",
+    "label": "Next.js: Server-side",
+    "type": "node",
+    "request": "launch",
+    "runtimeExecutable": "npx",
+    "runtimeArgs": ["next", "dev"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal",
+    "skipFiles": [
+      "<node_internals>/**",
+      "$ZED_WORKTREE_ROOT/node_modules/**"
+    ]
+  },
+  {
+    "adapter": "JavaScript",
+    "label": "Next.js: Client-side (Edge)",
+    "type": "msedge",
+    "request": "launch",
+    "url": "http://localhost:3000",
+    "webRoot": "$ZED_WORKTREE_ROOT",
+    "sourceMaps": true,
+    "skipFiles": [
+      "<node_internals>/**",
+      "$ZED_WORKTREE_ROOT/node_modules/**"
+    ]
+  },
+
+  {
+    "adapter": "JavaScript",
+    "label": "Next.js: Attach to Server",
+    "type": "node",
+    "request": "attach",
+    "port": 9229,
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "skipFiles": [
+      "<node_internals>/**",
+      "$ZED_WORKTREE_ROOT/node_modules/**"
+    ]
+  },
+  {
+    "adapter": "JavaScript",
+    "label": "Vitest: Debug Current Test",
+    "type": "node",
+    "request": "launch",
+    "program": "$ZED_WORKTREE_ROOT/node_modules/vitest/vitest.mjs",
+    "args": ["run", "$ZED_FILE"],
+    "cwd": "$ZED_WORKTREE_ROOT",
+    "console": "integratedTerminal",
+    "skipFiles": ["<node_internals>/**"]
+  }
+]
