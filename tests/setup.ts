@@ -16,8 +16,8 @@ vi.mock("pdfjs-dist", () => ({
 
 // Provide actual implementations for the utility functions
 // These don't need pdfjs-dist
-vi.mock("@/lib/parsing/pdf-loader", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/parsing/pdf-loader")>("@/lib/parsing/pdf-loader");
+vi.mock("@/lib/parsing/robinhood/pdf-loader", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/parsing/robinhood/pdf-loader")>("@/lib/parsing/robinhood/pdf-loader");
 
   return {
     ...actual,

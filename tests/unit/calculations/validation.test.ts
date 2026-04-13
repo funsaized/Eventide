@@ -16,7 +16,7 @@ import {
   shouldBlockImport,
   type PositionValidation,
 } from "@/lib/calculations/validation";
-import type { PairedPosition } from "@/lib/parsing/sections/section5";
+import type { PairedPosition } from "@/lib/parsing/robinhood/sections/section5";
 import type { FifoResult } from "@/lib/calculations/fifo";
 
 // ============================================================================

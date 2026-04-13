@@ -12,7 +12,7 @@ import {
   parseCurrencyValue,
   parseTradeSide,
   parseTradeType,
-} from "@/lib/parsing/sections/parse-helpers";
+} from "@/lib/parsing/robinhood/sections/parse-helpers";
 
 // ============================================================================
 // DATE PARSING

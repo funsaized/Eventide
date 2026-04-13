@@ -5,7 +5,7 @@
  * Handles multi-page tables, wrapped symbols, and scientific notation prices.
  */
 
-import type { TradeSide } from "../types";
+import type { TradeSide } from "../../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION2_COLUMNS,

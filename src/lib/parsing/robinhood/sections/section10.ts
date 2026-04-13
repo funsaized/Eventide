@@ -6,7 +6,7 @@
  * cash balances, and other account-level metrics.
  */
 
-import type { TextItem, AccountSummary } from "../types";
+import type { TextItem, AccountSummary } from "../../types";
 import type { SectionBoundary } from "./boundaries";
 import { SECTION10_FIELD_PATTERNS } from "./columns";
 import { groupIntoRows } from "./columns";

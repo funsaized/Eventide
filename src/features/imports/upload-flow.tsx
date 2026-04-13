@@ -26,10 +26,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useImportStatement } from "@/hooks/use-import-statement";
 import { useDemoTransition } from "@/hooks/use-demo-mode";
 import { DemoTransitionModal } from "@/features/demo";
-import { loadPDFFromFile } from "@/lib/parsing/pdf-loader";
-import { parseDocument } from "@/lib/parsing/import-pipeline";
+import { loadPDFFromFile } from "@/lib/parsing/robinhood/pdf-loader";
+import { parseDocument } from "@/lib/parsing/robinhood/import-pipeline";
 import { getTotalPnl } from "@/lib/calculations/fifo";
-import type { ImportPhase, ImportResult } from "@/lib/parsing/import-pipeline";
+import type { ImportPhase, ImportResult } from "@/lib/parsing/robinhood/import-pipeline";
 
 type FlowState =
   | "IDLE"

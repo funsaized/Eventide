@@ -10,7 +10,7 @@
  * Net P&L = YES row + NO row for the same symbol/expDate
  */
 
-import type { TradeSide } from "../types";
+import type { TradeSide } from "../../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION5_COLUMNS,

@@ -20,7 +20,7 @@ import type {
   TradeSide,
   SectionParseResult,
   PnLValidation,
-} from "../types";
+} from "../../types";
 import { flattenDocument } from "../pdf-loader";
 import {
   detectSectionBoundaries,
@@ -30,7 +30,7 @@ import {
 import { parseSection2, type TradeConfirmation } from "../sections/section2";
 import { parseSection4, mergeTradesWithDeduplication } from "../sections/section4";
 import { parseSection5, type PairedPosition } from "../sections/section5";
-import { categorizeSymbol } from "../symbol";
+import { categorizeSymbol } from "../../symbol";
 import { extractAccountNumber, extractStatementDate, extractStatementPeriod } from "../utils";
 
 // ============================================================================

@@ -19,7 +19,7 @@ import {
   findPairedPosition,
   type PurchaseSaleSummaryRow,
   type PairedPosition,
-} from "@/lib/parsing/sections/section5";
+} from "@/lib/parsing/robinhood/sections/section5";
 import {
   createMockSection5Data,
   createMockSection5WithNegativePnl,

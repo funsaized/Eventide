@@ -10,8 +10,8 @@ import {
   mergeTradesWithDeduplication,
   getUniqueTradesFromSections,
   type PurchaseSaleTrade,
-} from "@/lib/parsing/sections/section4";
-import type { TradeConfirmation } from "@/lib/parsing/sections/section2";
+} from "@/lib/parsing/robinhood/sections/section4";
+import type { TradeConfirmation } from "@/lib/parsing/robinhood/sections/section2";
 
 // ============================================================================
 // HELPERS

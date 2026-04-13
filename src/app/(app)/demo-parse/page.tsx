@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { loadPDFFromFile } from "@/lib/parsing/pdf-loader";
-import { parseDocument, importStatement } from "@/lib/parsing/import-pipeline";
-import { setDebugLogging } from "@/lib/parsing/sections/parse-helpers";
+import { loadPDFFromFile } from "@/lib/parsing/robinhood/pdf-loader";
+import { parseDocument, importStatement } from "@/lib/parsing/robinhood/import-pipeline";
+import { setDebugLogging } from "@/lib/parsing/robinhood/sections/parse-helpers";
 import { getTotalPnl } from "@/lib/calculations/fifo";
 
 interface ParseResult {

@@ -6,7 +6,7 @@
  * we log them but use the statement values.
  */
 
-import type { PairedPosition } from "../parsing/sections/section5";
+import type { PairedPosition } from "../parsing/robinhood/sections/section5";
 import type { FifoResult } from "./fifo";
 
 // ============================================================================

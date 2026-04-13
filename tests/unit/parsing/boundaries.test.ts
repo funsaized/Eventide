@@ -16,7 +16,7 @@ import {
   isMultiPageSection,
   getSectionPages,
   type SectionBoundary,
-} from "@/lib/parsing/sections/boundaries";
+} from "@/lib/parsing/robinhood/sections/boundaries";
 import type { TextItem, ExtractedDocument } from "@/lib/parsing/types";
 
 // ============================================================================

@@ -13,7 +13,7 @@ import {
   getTotalFees,
   getNetPnl,
   type AccountSummaryRaw,
-} from "@/lib/parsing/sections/section10";
+} from "@/lib/parsing/robinhood/sections/section10";
 import type { TextItem } from "@/lib/parsing/types";
 
 // ============================================================================

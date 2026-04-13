@@ -5,7 +5,7 @@
  * Tracks unrealized P&L and current market values.
  */
 
-import type { TradeSide, OpenPositionRow } from "../types";
+import type { TradeSide, OpenPositionRow } from "../../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION7_COLUMNS,

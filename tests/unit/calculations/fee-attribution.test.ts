@@ -16,7 +16,7 @@ import {
   type TradeWithFees,
 } from "@/lib/calculations/fee-attribution";
 import type { TradeEntry } from "@/lib/calculations/fifo";
-import type { TradeConfirmationSummary } from "@/lib/parsing/sections/section3";
+import type { TradeConfirmationSummary } from "@/lib/parsing/robinhood/sections/section3";
 
 // ============================================================================
 // HELPER FUNCTIONS

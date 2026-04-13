@@ -13,7 +13,7 @@ import {
   groupBySymbolAndDate,
   getFeeBreakdown,
   type TradeConfirmationSummary,
-} from "@/lib/parsing/sections/section3";
+} from "@/lib/parsing/robinhood/sections/section3";
 
 // ============================================================================
 // HELPERS

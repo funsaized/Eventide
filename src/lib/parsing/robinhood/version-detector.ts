@@ -5,7 +5,7 @@
  * Robinhood Derivatives statements have evolved over time with format changes.
  */
 
-import type { ExtractedDocument, TextItem } from "./types";
+import type { ExtractedDocument, TextItem } from "../types";
 import { flattenDocument } from "./pdf-loader";
 import { extractStatementDate, detectSections } from "./utils";
 

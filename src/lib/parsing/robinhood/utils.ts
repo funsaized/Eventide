@@ -14,7 +14,7 @@ import type {
   ColumnLayout,
   MarketCategory,
   ParsedSymbol,
-} from "./types";
+} from "../types";
 import { flattenDocument, groupIntoLines, mergeLineText } from "./pdf-loader";
 
 // ============================================================================

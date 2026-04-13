@@ -10,7 +10,7 @@ import type {
   TextItem,
   ExtractedPage,
   ExtractedDocument,
-} from "./types";
+} from "../types";
 
 // Configure pdf.js worker
 // In Next.js, we need to set the worker source

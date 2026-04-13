@@ -9,7 +9,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { ImportPhase } from "@/lib/parsing/import-pipeline";
+import type { ImportPhase } from "@/lib/parsing/robinhood/import-pipeline";
 
 export interface ParsingStep {
   id: string;

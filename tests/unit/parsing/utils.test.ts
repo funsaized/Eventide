@@ -27,7 +27,7 @@ import {
   detectColumnPositions,
   getColumnForItem,
   TRADE_COLUMN_HEADERS,
-} from "@/lib/parsing/utils";
+} from "@/lib/parsing/robinhood/utils";
 import type { TextItem } from "@/lib/parsing/types";
 
 // ============================================================================

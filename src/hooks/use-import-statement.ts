@@ -9,8 +9,8 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/state/query-client";
-import { importStatement } from "@/lib/parsing/import-pipeline";
-import type { ImportPhase, ImportResult } from "@/lib/parsing/import-pipeline";
+import { importStatement } from "@/lib/parsing/robinhood/import-pipeline";
+import type { ImportPhase, ImportResult } from "@/lib/parsing/robinhood/import-pipeline";
 
 export type ProgressCallback = (
   phase: ImportPhase,

@@ -16,7 +16,7 @@ import {
   filterBySymbol,
   groupTradesBySymbol,
   type TradeConfirmation,
-} from "@/lib/parsing/sections/section2";
+} from "@/lib/parsing/robinhood/sections/section2";
 import {
   createMockSection2Data,
   createMockSection2WithWrappedSymbol,

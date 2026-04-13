@@ -6,7 +6,7 @@
  * quantity traded.
  */
 
-import type { TradeConfirmationSummary } from "../parsing/sections/section3";
+import type { TradeConfirmationSummary } from "../parsing/robinhood/sections/section3";
 import type { TradeEntry } from "./fifo";
 
 // ============================================================================

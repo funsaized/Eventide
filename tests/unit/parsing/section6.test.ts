@@ -18,7 +18,7 @@ import {
   groupByType,
   type JournalEntryRow,
   type CashFlowType,
-} from "@/lib/parsing/sections/section6";
+} from "@/lib/parsing/robinhood/sections/section6";
 
 // ============================================================================
 // HELPERS

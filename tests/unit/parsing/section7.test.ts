@@ -16,7 +16,7 @@ import {
   groupBySymbol,
   isExpiringSoon,
   type OpenPosition,
-} from "@/lib/parsing/sections/section7";
+} from "@/lib/parsing/robinhood/sections/section7";
 
 // ============================================================================
 // HELPERS

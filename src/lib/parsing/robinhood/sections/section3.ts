@@ -11,7 +11,7 @@
  * - Total fees for fee attribution to individual trades
  */
 
-import type { TradeSide } from "../types";
+import type { TradeSide } from "../../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION3_COLUMNS,

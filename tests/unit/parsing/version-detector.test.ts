@@ -12,7 +12,7 @@ import {
   getSupportedVersions,
   getVersionEffectiveDate,
   isVersionSupported,
-} from "@/lib/parsing/version-detector";
+} from "@/lib/parsing/robinhood/version-detector";
 import type { TextItem, ExtractedDocument } from "@/lib/parsing/types";
 
 // ============================================================================

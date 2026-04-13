@@ -13,7 +13,7 @@
  * 9. Persist in a transaction with duplicate detection
  */
 
-import type { ExtractedDocument } from "./types";
+import type { ExtractedDocument } from "../types";
 import type { SectionBoundary } from "./sections/boundaries";
 import type { TradeConfirmation, Section2ParseResult } from "./sections/section2";
 import type { TradeConfirmationSummary, Section3ParseResult } from "./sections/section3";
@@ -22,9 +22,9 @@ import type { PairedPosition, Section5ParseResult } from "./sections/section5";
 import type { JournalEntryRow, Section6ParseResult } from "./sections/section6";
 import type { OpenPosition, Section7ParseResult } from "./sections/section7";
 import type { AccountSummaryRaw, Section10ParseResult } from "./sections/section10";
-import type { TradeEntry, FifoResult } from "../calculations/fifo";
-import type { TradeWithFees, FeeAttributionResult } from "../calculations/fee-attribution";
-import type { ValidationResult as PnlValidationResult } from "../calculations/validation";
+import type { TradeEntry, FifoResult } from "../../calculations/fifo";
+import type { TradeWithFees, FeeAttributionResult } from "../../calculations/fee-attribution";
+import type { ValidationResult as PnlValidationResult } from "../../calculations/validation";
 import type {
   Platform,
   CreateStatementImportInput,
@@ -32,7 +32,7 @@ import type {
   CreateClosedPositionInput,
   CreateCashFlowInput,
   CreateOpenPositionInput,
-} from "../db/types";
+} from "../../db/types";
 
 import { loadPDFFromFile, flattenDocument } from "./pdf-loader";
 import {
@@ -47,21 +47,21 @@ import { parseSection5 } from "./sections/section5";
 import { parseSection6, toJournalEntry } from "./sections/section6";
 import { parseSection7, toOpenPositionRow } from "./sections/section7";
 import { parseSection10, toAccountSummary, extractStatementMetadata } from "./sections/section10";
-import { calculateAllPositions, getTotalPnl } from "../calculations/fifo";
-import { attributeFees } from "../calculations/fee-attribution";
+import { calculateAllPositions, getTotalPnl } from "../../calculations/fifo";
+import { attributeFees } from "../../calculations/fee-attribution";
 import {
   validatePnlAgainstSection5,
   shouldBlockImport,
   createReconciliationRecord,
-} from "../calculations/validation";
-import { categorizeSymbol } from "./symbol";
+} from "../../calculations/validation";
+import { categorizeSymbol } from "../symbol";
 import { extractAccountNumber, extractStatementDate, extractStatementPeriod } from "./utils";
 
-import { transaction } from "../db/client";
-import { checkDuplicateImport, createStatementImport } from "../db/queries/statements";
-import { createTrades } from "../db/queries/trades";
-import { createClosedPositions, createCashFlows, createOpenPositions } from "../db/queries/positions";
-import { generateId } from "../db/queries/statements";
+import { transaction } from "../../db/client";
+import { checkDuplicateImport, createStatementImport } from "../../db/queries/statements";
+import { createTrades } from "../../db/queries/trades";
+import { createClosedPositions, createCashFlows, createOpenPositions } from "../../db/queries/positions";
+import { generateId } from "../../db/queries/statements";
 
 // ============================================================================
 // TYPES
