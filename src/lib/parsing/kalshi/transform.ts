@@ -5,10 +5,14 @@
  * Pure functions only.
  */
 
-import type { CreateClosedPositionInput, CreateTradeInput } from "@/lib/db/types";
+import type {
+  CreateCashFlowInput,
+  CreateClosedPositionInput,
+  CreateTradeInput,
+} from "@/lib/db/types";
 import { categorizeSymbol } from "@/lib/parsing/symbol";
 
-import type { KalshiTransactionRow } from "./types";
+import type { KalshiParsedActivity, KalshiTransactionRow } from "./types";
 import { centsToDecimal, normalizeSide, parseIsoTimestamp } from "./utils";
 
 /**
@@ -115,4 +119,62 @@ export function transformAllTransactions(
   }
 
   return { trades, closedPositions };
+}
+
+// ============================================================================
+// ACTIVITY CSV TRANSFORMER
+// ============================================================================
+
+/**
+ * Convert parsed Kalshi Activity data into cash flow records.
+ * - Deposits → DEPOSIT cash flow
+ * - Deposit fees (when > 0) → FEE cash flow (negative amount)
+ * - Credits → ADJUSTMENT cash flow
+ */
+export function activityToCashFlows(
+  parsed: KalshiParsedActivity,
+  importId: string,
+): CreateCashFlowInput[] {
+  const flows: CreateCashFlowInput[] = [];
+
+  for (const deposit of parsed.deposits) {
+    const amount = Number.parseFloat(deposit.Amount_In_Dollars) || 0;
+    const fee = Number.parseFloat(deposit.Fee_In_Dollars) || 0;
+    const date = parseIsoTimestamp(deposit.Original_Date);
+    const depositType = deposit.Deposit_Type || "unknown";
+
+    flows.push({
+      import_id: importId,
+      date,
+      type: "DEPOSIT",
+      amount,
+      description: `Kalshi deposit (${depositType})`,
+    });
+
+    if (fee > 0) {
+      flows.push({
+        import_id: importId,
+        date,
+        type: "FEE",
+        amount: -fee,
+        description: `Kalshi deposit fee (${depositType})`,
+      });
+    }
+  }
+
+  for (const credit of parsed.credits) {
+    const amount = Number.parseFloat(credit.Amount_In_Dollars) || 0;
+    const date = parseIsoTimestamp(credit.Original_Date);
+    const reason = credit.Credit_Reason || "Kalshi credit";
+
+    flows.push({
+      import_id: importId,
+      date,
+      type: "ADJUSTMENT",
+      amount,
+      description: reason,
+    });
+  }
+
+  return flows;
 }

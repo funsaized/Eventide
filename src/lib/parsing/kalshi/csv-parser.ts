@@ -5,8 +5,13 @@
  * Pure functions — no side effects, no React dependencies.
  */
 
-import type { KalshiParsedTransactions, KalshiTransactionRow } from "./types";
-import { parseCsvLine, parseIsoTimestamp } from "./utils";
+import type {
+  KalshiActivityRow,
+  KalshiParsedActivity,
+  KalshiParsedTransactions,
+  KalshiTransactionRow,
+} from "./types";
+import { parseCsvLine, parseIsoTimestamp, stripBom } from "./utils";
 
 // ============================================================================
 // TRANSACTIONS CSV PARSER
@@ -146,5 +151,91 @@ export function parseKalshiTransactionsCsv(csvContent: string): KalshiParsedTran
     warnings,
     rowCount,
     invalidRowCount,
+  };
+}
+
+// ============================================================================
+// ACTIVITY CSV PARSER
+// ============================================================================
+
+/**
+ * Parse Kalshi Activity CSV content into typed row objects.
+ * Filters to only Deposit and Credit rows — Order rows are discarded.
+ * Handles UTF-8 BOM prefix and double-quoted fields.
+ *
+ * @param csvContent Full CSV string (with optional BOM + quoted fields)
+ * @returns Parsed deposits and credits
+ */
+export function parseKalshiActivityCsv(csvContent: string): KalshiParsedActivity {
+  const cleaned = stripBom(csvContent);
+  const lines = cleaned.split(/\r?\n/).filter((line) => line.trim() !== "");
+
+  if (lines.length === 0) {
+    return { deposits: [], credits: [], warnings: [] };
+  }
+
+  const headerFields = parseCsvLine(lines[0]).map((field) => field.trim());
+  const headerMap = new Map<string, number>();
+  headerFields.forEach((column, index) => {
+    headerMap.set(column, index);
+  });
+
+  const deposits: KalshiActivityRow[] = [];
+  const credits: KalshiActivityRow[] = [];
+  const warnings: string[] = [];
+
+  for (let index = 1; index < lines.length; index++) {
+    const line = lines[index];
+    if (!line.trim()) {
+      continue;
+    }
+
+    const fields = parseCsvLine(line);
+    const type = (fields[headerMap.get("type") ?? -1] ?? "").trim();
+
+    if (type === "Deposit") {
+      deposits.push(buildActivityRow(fields, headerMap));
+    } else if (type === "Credit") {
+      credits.push(buildActivityRow(fields, headerMap));
+    }
+  }
+
+  return { deposits, credits, warnings };
+}
+
+function buildActivityRow(
+  fields: string[],
+  headerMap: Map<string, number>
+): KalshiActivityRow {
+  const get = (column: keyof KalshiActivityRow): string => {
+    return fields[headerMap.get(column) ?? -1] ?? "";
+  };
+
+  return {
+    type: get("type"),
+    Status: get("Status"),
+    Amount_In_Dollars: get("Amount_In_Dollars"),
+    Original_Date: get("Original_Date"),
+    Traded_Time: get("Traded_Time"),
+    Last_Updated: get("Last_Updated"),
+    Deposit_Type: get("Deposit_Type"),
+    Fee_In_Dollars: get("Fee_In_Dollars"),
+    Market_Title: get("Market_Title"),
+    Market_Ticker: get("Market_Ticker"),
+    Market_Id: get("Market_Id"),
+    Filled: get("Filled"),
+    Remaining: get("Remaining"),
+    Direction: get("Direction"),
+    Order_Type: get("Order_Type"),
+    Price_In_Cents: get("Price_In_Cents"),
+    No_Contracts_Owned: get("No_Contracts_Owned"),
+    No_Contracts_Average_Price_In_Cents: get("No_Contracts_Average_Price_In_Cents"),
+    Yes_Contracts_Owned: get("Yes_Contracts_Owned"),
+    Yes_Contracts_Average_Price_In_Cents: get("Yes_Contracts_Average_Price_In_Cents"),
+    Result: get("Result"),
+    Profit_In_Dollars: get("Profit_In_Dollars"),
+    Credit_Reason: get("Credit_Reason"),
+    Credit_Type: get("Credit_Type"),
+    Introducing_Broker: get("Introducing_Broker"),
   };
 }
