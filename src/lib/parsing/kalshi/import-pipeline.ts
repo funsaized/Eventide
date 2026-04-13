@@ -18,7 +18,7 @@ import type { ImportOptions, ImportPreviewResult, ImportResult } from "@/lib/par
 import { parseKalshiActivityCsv, parseKalshiTransactionsCsv } from "./csv-parser";
 import { activityToCashFlows, transformAllTransactions } from "./transform";
 import type { KalshiActivityRow, KalshiTransactionRow } from "./types";
-import { parseIsoTimestamp } from "./utils";
+import { centsToDecimal, parseIsoTimestamp } from "./utils";
 
 const KALSHI_ACCOUNT_ID = "kalshi-default";
 
@@ -192,11 +192,15 @@ export async function parseKalshiTransactionsForPreview(
   const { duplicateCount } = await checkKalshiTradeDuplicates(trades);
   const dates = deriveImportDates(parsed.rows);
 
-  const totalFees =
-    parsed.rows.reduce((sum, row) => sum + row.open_fees_cents + row.close_fees_cents, 0) / 100;
-  const grossPnl =
-    parsed.rows.reduce((sum, row) => sum + row.realized_pnl_without_fees_cents, 0) / 100;
-  const netPnl = parsed.rows.reduce((sum, row) => sum + row.realized_pnl_with_fees_cents, 0) / 100;
+  const totalFees = centsToDecimal(
+    parsed.rows.reduce((sum, row) => sum + row.open_fees_cents + row.close_fees_cents, 0)
+  );
+  const grossPnl = centsToDecimal(
+    parsed.rows.reduce((sum, row) => sum + row.realized_pnl_without_fees_cents, 0)
+  );
+  const netPnl = centsToDecimal(
+    parsed.rows.reduce((sum, row) => sum + row.realized_pnl_with_fees_cents, 0)
+  );
 
   return {
     platform: "kalshi",

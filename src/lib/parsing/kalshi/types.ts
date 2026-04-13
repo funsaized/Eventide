@@ -5,8 +5,6 @@
  * Two formats: Transactions (yearly) and Activity (recent).
  */
 
-import type { Platform } from "@/lib/db/types";
-
 // ============================================================================
 // CSV ROW TYPES (raw parsed from CSV, values still in cents for Transactions)
 // ============================================================================
