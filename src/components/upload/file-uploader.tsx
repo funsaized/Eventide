@@ -31,7 +31,7 @@ export function FileUploader({
   onFileSelect,
   disabled = false,
   maxSizeMB = 10,
-  accept = ".pdf",
+  accept = ".pdf,.csv",
   className,
 }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -40,8 +40,10 @@ export function FileUploader({
   const validateFile = useCallback(
     (file: File): ValidationResult => {
       // Check file type
-      if (!file.type.includes("pdf") && !file.name.endsWith(".pdf")) {
-        return { valid: false, error: "Please select a PDF file" };
+      const isPdf = file.type.includes("pdf") || file.name.toLowerCase().endsWith(".pdf");
+      const isCsv = file.type.includes("csv") || file.name.toLowerCase().endsWith(".csv");
+      if (!isPdf && !isCsv) {
+        return { valid: false, error: "Please select a PDF or CSV file" };
       }
 
       // Check file size
@@ -168,12 +170,12 @@ export function FileUploader({
                 {isDragging ? "Drop your statements here" : "Upload your statements"}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Drag and drop Robinhood Derivatives PDFs or click to browse
+                Drag and drop Robinhood PDFs or Kalshi CSVs, or click to browse
               </p>
             </div>
 
             <p className="text-xs text-muted-foreground">
-              PDF files only, up to {maxSizeMB}MB
+              PDF or CSV files, up to {maxSizeMB}MB
             </p>
           </div>
 
