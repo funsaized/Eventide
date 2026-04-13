@@ -1,7 +1,7 @@
 /**
- * PDF Parsing Module
+ * Parsing Module
  *
- * Exports all parsing utilities for Robinhood Derivatives statement processing.
+ * Exports platform parsing utilities and shared helpers.
  */
 
 // Shared types
@@ -13,6 +13,9 @@ export type {
 
 // Robinhood parsing (re-exported for backward compatibility)
 export * from "./robinhood";
+
+// Kalshi parsing
+export * from "./kalshi";
 
 // Symbol Parsing (Enhanced)
 export {
