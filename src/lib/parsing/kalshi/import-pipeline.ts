@@ -9,7 +9,6 @@ import { createCashFlows, createClosedPositions } from "@/lib/db/queries/positio
 import { createStatementImport, generateId } from "@/lib/db/queries/statements";
 import { createTrades } from "@/lib/db/queries/trades";
 import type {
-  CreateClosedPositionInput,
   CreateTradeInput,
   StatementImport,
 } from "@/lib/db/types";
@@ -168,14 +167,6 @@ function deriveActivityDates(rows: KalshiActivityRow[]): {
   };
 }
 
-function getClosedPositionDedupKey(position: CreateClosedPositionInput): string | null {
-  if (!position.entry_date || !position.exit_date) {
-    return null;
-  }
-
-  return buildTradeDedupKey(position.symbol, position.entry_date, position.exit_date);
-}
-
 // ============================================================================
 // PREVIEW
 // ============================================================================
@@ -313,6 +304,9 @@ export async function importKalshiTransactions(
       };
     }
 
+    // Each parsed row produces: trades[2*i] = OPEN, trades[2*i+1] = CLOSE, closedPositions[i].
+    // Match closed positions to their OPEN trade by index — use the TRADE's dedup key
+    // (which has raw ISO timestamps) instead of the position's entry_date/exit_date (YYYY-MM-DD).
     const uniqueTradeKeys = new Set(
       uniqueTrades
         .filter((trade) => trade.trade_type === "OPEN")
@@ -320,8 +314,10 @@ export async function importKalshiTransactions(
         .filter((key): key is string => key !== null)
     );
 
-    const uniqueClosedPositions = closedPositions.filter((position) => {
-      const key = getClosedPositionDedupKey(position);
+    const uniqueClosedPositions = closedPositions.filter((_, i) => {
+      const openTrade = trades[2 * i]; // Original OPEN trade (before dedup filtering)
+      if (!openTrade) return false;
+      const key = getTradeDedupKey(openTrade);
       return key === null || uniqueTradeKeys.has(key);
     });
 
