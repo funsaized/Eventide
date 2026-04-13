@@ -4,6 +4,17 @@
  * Exports platform parsing utilities and shared helpers.
  */
 
+// Core abstractions (ImporterRegistry, shared types)
+export { ImporterRegistry, importerRegistry } from "./core";
+export type {
+  ImportPhase,
+  ProgressCallback,
+  ParseOptions,
+  ImportPreviewResult,
+  ImportResult,
+  SourceImporter,
+} from "./core";
+
 // Shared types
 export type {
   TradeSide,
