@@ -4,6 +4,8 @@
  * All Robinhood-specific PDF parsing logic.
  */
 
+import "./importer";
+
 // Types (must be first)
 export * from "./types";
 
@@ -32,6 +34,9 @@ export {
   type ImportPhase,
   type ProgressCallback,
 } from "./import-pipeline";
+
+// Shared importer adapter
+export { RobinhoodImporter } from "./importer";
 
 // Utilities
 export {
