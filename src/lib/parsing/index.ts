@@ -4,27 +4,9 @@
  * Exports all parsing utilities for Robinhood Derivatives statement processing.
  */
 
-// Types
+// Shared types
 export type {
-  TextItem,
-  ExtractedPage,
-  ExtractedDocument,
-  SectionType,
-  DetectedSection,
-  ColumnPosition,
-  ColumnLayout,
   TradeSide,
-  TradeRow,
-  ClosedPositionRow,
-  JournalEntry,
-  OpenPositionRow,
-  AccountSummary,
-  ParsedStatement,
-  ParseStatus,
-  SectionParseResult,
-  PnLValidation,
-  ValidationResult,
-  StatementParser,
   MarketCategory,
   ParsedSymbol,
 } from "./types";

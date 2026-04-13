@@ -17,10 +17,10 @@ import type {
   JournalEntry,
   OpenPositionRow,
   AccountSummary,
-  TradeSide,
   SectionParseResult,
   PnLValidation,
-} from "../../types";
+} from "../types";
+import type { TradeSide } from "../../types";
 import { flattenDocument } from "../pdf-loader";
 import {
   detectSectionBoundaries,

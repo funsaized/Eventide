@@ -5,7 +5,7 @@
  * Handles all 10 sections defined in the statement format.
  */
 
-import type { TextItem, ExtractedDocument } from "../../types";
+import type { TextItem, ExtractedDocument } from "../types";
 import { flattenDocument } from "../pdf-loader";
 
 // ============================================================================

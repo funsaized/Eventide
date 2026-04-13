@@ -5,7 +5,7 @@
  */
 
 import { vi } from "vitest";
-import type { TextItem, ExtractedDocument } from "@/lib/parsing/types";
+import type { TextItem, ExtractedDocument } from "@/lib/parsing/robinhood/types";
 
 // Mock pdfjs-dist to avoid Node.js environment issues
 vi.mock("pdfjs-dist", () => ({

@@ -5,7 +5,7 @@
  * for testing section parsers.
  */
 
-import type { TextItem, ExtractedDocument, ExtractedPage } from "@/lib/parsing/types";
+import type { TextItem, ExtractedDocument, ExtractedPage } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
 // HELPER FUNCTIONS

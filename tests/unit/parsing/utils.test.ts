@@ -28,7 +28,7 @@ import {
   getColumnForItem,
   TRADE_COLUMN_HEADERS,
 } from "@/lib/parsing/robinhood/utils";
-import type { TextItem } from "@/lib/parsing/types";
+import type { TextItem } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
 // HELPERS

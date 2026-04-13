@@ -4,6 +4,9 @@
  * All Robinhood-specific PDF parsing logic.
  */
 
+// Types (must be first)
+export * from "./types";
+
 // PDF Loading
 export * from "./pdf-loader";
 

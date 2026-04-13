@@ -13,7 +13,7 @@ import {
   getVersionEffectiveDate,
   isVersionSupported,
 } from "@/lib/parsing/robinhood/version-detector";
-import type { TextItem, ExtractedDocument } from "@/lib/parsing/types";
+import type { TextItem, ExtractedDocument } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
 // HELPERS

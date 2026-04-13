@@ -12,9 +12,8 @@ import type {
   DetectedSection,
   ColumnPosition,
   ColumnLayout,
-  MarketCategory,
-  ParsedSymbol,
-} from "../types";
+} from "./types";
+import type { MarketCategory, ParsedSymbol } from "../types";
 import { flattenDocument, groupIntoLines, mergeLineText } from "./pdf-loader";
 
 // ============================================================================

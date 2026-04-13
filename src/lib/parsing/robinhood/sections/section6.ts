@@ -5,7 +5,7 @@
  * from the Journal Entries section.
  */
 
-import type { JournalEntry } from "../../types";
+import type { JournalEntry } from "../types";
 import type { SectionBoundary } from "./boundaries";
 import {
   SECTION6_COLUMNS,

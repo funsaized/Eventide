@@ -5,11 +5,11 @@
  * Uses percentage-based offsets for robustness across different PDF renderings.
  */
 
-import type { TextItem, ColumnPosition, ColumnLayout } from "../../types";
+import type { TextItem, ColumnPosition, ColumnLayout } from "../types";
 import { groupIntoLines, mergeLineText } from "../pdf-loader";
 
 // Re-export ColumnLayout for use by section parsers
-export type { ColumnLayout } from "../../types";
+export type { ColumnLayout } from "../types";
 
 // ============================================================================
 // COLUMN CONFIGURATION

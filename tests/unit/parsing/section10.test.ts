@@ -14,7 +14,7 @@ import {
   getNetPnl,
   type AccountSummaryRaw,
 } from "@/lib/parsing/robinhood/sections/section10";
-import type { TextItem } from "@/lib/parsing/types";
+import type { TextItem } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
 // HELPERS

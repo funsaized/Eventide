@@ -13,7 +13,7 @@
  * 9. Persist in a transaction with duplicate detection
  */
 
-import type { ExtractedDocument } from "../types";
+import type { ExtractedDocument } from "./types";
 import type { SectionBoundary } from "./sections/boundaries";
 import type { TradeConfirmation, Section2ParseResult } from "./sections/section2";
 import type { TradeConfirmationSummary, Section3ParseResult } from "./sections/section3";

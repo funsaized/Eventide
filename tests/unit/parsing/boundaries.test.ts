@@ -17,7 +17,7 @@ import {
   getSectionPages,
   type SectionBoundary,
 } from "@/lib/parsing/robinhood/sections/boundaries";
-import type { TextItem, ExtractedDocument } from "@/lib/parsing/types";
+import type { TextItem, ExtractedDocument } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
 // HELPERS

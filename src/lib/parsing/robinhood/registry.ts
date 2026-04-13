@@ -10,7 +10,7 @@ import type {
   StatementParser,
   ParsedStatement,
   ValidationResult,
-} from "../types";
+} from "./types";
 import {
   detectVersion,
   getSupportedVersions,
