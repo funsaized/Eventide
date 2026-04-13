@@ -14,6 +14,7 @@ import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface ImportPreviewData {
+  platform?: "robinhood" | "kalshi";
   accountNumber: string;
   statementDate: string;
   periodStart: string;
@@ -28,6 +29,7 @@ export interface ImportPreviewData {
   endingCash: number;
   totalFees: number;
   grossPnl: number;
+  duplicatesSkipped?: number;
 
   pnlValidation: {
     isValid: boolean;
@@ -92,6 +94,7 @@ export function ImportPreview({
   filePreviews,
   className,
 }: ImportPreviewProps) {
+  const platform = data.platform ?? "robinhood";
   const hasWarnings = data.warnings.length > 0;
   const hasPnlIssues = !data.pnlValidation.isValid;
 
@@ -105,7 +108,9 @@ export function ImportPreview({
               Review parsed data from {fileCount} file{fileCount !== 1 ? "s" : ""} before importing
             </CardDescription>
           </div>
-          {data.pnlValidation.isValid ? (
+          {platform === "kalshi" ? (
+            <Badge variant="outline">Kalshi</Badge>
+          ) : data.pnlValidation.isValid ? (
             <Badge className="bg-green-600">P&L Validated</Badge>
           ) : (
             <Badge variant="secondary">P&L Discrepancies</Badge>
@@ -131,56 +136,88 @@ export function ImportPreview({
           </div>
         </div>
 
-        {/* Counts */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Trades" value={data.tradeCount} />
-          <StatCard label="Closed Positions" value={data.closedPositionCount} />
-          <StatCard label="Open Positions" value={data.openPositionCount} />
-          <StatCard label="Journal Entries" value={data.journalEntryCount} />
-        </div>
+        {platform === "kalshi" ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">Kalshi</Badge>
+              <span className="text-sm text-muted-foreground">
+                {data.periodStart} — {data.periodEnd}
+              </span>
+            </div>
 
-        {/* Financial Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard
-            label="Net Liquidity"
-            value={formatCurrency(data.netLiquidity)}
-          />
-          <StatCard
-            label="Ending Cash"
-            value={formatCurrency(data.endingCash)}
-          />
-          <StatCard
-            label="Total Fees"
-            value={formatCurrency(data.totalFees)}
-          />
-          <StatCard
-            label="Gross P&L"
-            value={formatCurrency(data.grossPnl)}
-            variant={data.grossPnl >= 0 ? "positive" : "negative"}
-          />
-        </div>
-
-        {/* P&L Validation */}
-        <div className="p-4 rounded-lg border">
-          <h4 className="font-medium mb-2">P&L Validation</h4>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-green-500">
-              {data.pnlValidation.passCount} passed
-            </span>
-            <span className="text-muted-foreground">|</span>
-            <span className={cn(data.pnlValidation.failCount > 0 && "text-yellow-500")}>
-              {data.pnlValidation.failCount} discrepancies
-            </span>
-            {data.pnlValidation.totalDiscrepancy > 0.01 && (
-              <>
-                <span className="text-muted-foreground">|</span>
-                <span className="text-yellow-500">
-                  Total: {formatCurrency(data.pnlValidation.totalDiscrepancy)}
-                </span>
-              </>
-            )}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <StatCard label="Trades" value={data.tradeCount} />
+              <StatCard label="Closed Positions" value={data.closedPositionCount} />
+              <StatCard
+                label="Total Fees"
+                value={formatCurrency(data.totalFees)}
+                variant={data.totalFees > 0 ? "negative" : "default"}
+              />
+              <StatCard
+                label="Gross P&L"
+                value={formatCurrency(data.grossPnl)}
+                variant={data.grossPnl >= 0 ? "positive" : "negative"}
+              />
+              <StatCard
+                label="Duplicates Skipped"
+                value={data.duplicatesSkipped ?? 0}
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Counts */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard label="Trades" value={data.tradeCount} />
+              <StatCard label="Closed Positions" value={data.closedPositionCount} />
+              <StatCard label="Open Positions" value={data.openPositionCount} />
+              <StatCard label="Journal Entries" value={data.journalEntryCount} />
+            </div>
+
+            {/* Financial Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <StatCard
+                label="Net Liquidity"
+                value={formatCurrency(data.netLiquidity)}
+              />
+              <StatCard
+                label="Ending Cash"
+                value={formatCurrency(data.endingCash)}
+              />
+              <StatCard
+                label="Total Fees"
+                value={formatCurrency(data.totalFees)}
+              />
+              <StatCard
+                label="Gross P&L"
+                value={formatCurrency(data.grossPnl)}
+                variant={data.grossPnl >= 0 ? "positive" : "negative"}
+              />
+            </div>
+
+            {/* P&L Validation */}
+            <div className="p-4 rounded-lg border">
+              <h4 className="font-medium mb-2">P&L Validation</h4>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-green-500">
+                  {data.pnlValidation.passCount} passed
+                </span>
+                <span className="text-muted-foreground">|</span>
+                <span className={cn(data.pnlValidation.failCount > 0 && "text-yellow-500")}>
+                  {data.pnlValidation.failCount} discrepancies
+                </span>
+                {data.pnlValidation.totalDiscrepancy > 0.01 && (
+                  <>
+                    <span className="text-muted-foreground">|</span>
+                    <span className="text-yellow-500">
+                      Total: {formatCurrency(data.pnlValidation.totalDiscrepancy)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {filePreviews && filePreviews.length > 1 && (
           <FileBreakdownTable filePreviews={filePreviews} />
@@ -262,6 +299,7 @@ function FileBreakdownTable({ filePreviews }: { filePreviews: FilePreviewData[] 
             <thead className="sticky top-0 bg-background border-b">
               <tr>
                 <th className="text-left p-2 pl-4">File</th>
+                <th className="text-left p-2">Platform</th>
                 <th className="text-left p-2">Date</th>
                 <th className="text-right p-2">Trades</th>
                 <th className="text-right p-2">Closed</th>
@@ -275,6 +313,11 @@ function FileBreakdownTable({ filePreviews }: { filePreviews: FilePreviewData[] 
                 <tr key={i} className="border-b last:border-0">
                   <td className="p-2 pl-4 font-mono text-xs truncate max-w-[200px]">
                     {fp.fileName}
+                  </td>
+                  <td className="p-2 whitespace-nowrap">
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                      {fp.platform ?? "robinhood"}
+                    </Badge>
                   </td>
                   <td className="p-2 whitespace-nowrap">{fp.statementDate}</td>
                   <td className="p-2 text-right font-mono">{fp.tradeCount}</td>

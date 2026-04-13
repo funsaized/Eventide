@@ -148,6 +148,16 @@ function getPreviewPnlValidation(platformData: PreviewPlatformData): PreviewPnlV
   );
 }
 
+function getImportPreviewPlatform(
+  platform: ImportPreviewResult["platform"]
+): ImportPreviewData["platform"] {
+  if (platform === "robinhood" || platform === "kalshi") {
+    return platform;
+  }
+
+  return undefined;
+}
+
 function mapToFilePreviewData(
   fileName: string,
   result: ImportPreviewResult
@@ -156,6 +166,7 @@ function mapToFilePreviewData(
 
   return {
     fileName,
+    platform: getImportPreviewPlatform(result.platform),
     accountNumber: result.accountNumber,
     statementDate: result.statementDate,
     periodStart: result.periodStart,
@@ -168,6 +179,7 @@ function mapToFilePreviewData(
     endingCash: platformData.endingCash ?? 0,
     totalFees: result.totalFees,
     grossPnl: result.grossPnl,
+    duplicatesSkipped: result.duplicatesSkipped,
     pnlValidation: getPreviewPnlValidation(platformData),
     warnings: result.warnings.map((warning) => `${fileName}: ${warning}`),
   };
@@ -339,11 +351,13 @@ export function UploadFlow() {
     }
 
     const accountNumbers = [...new Set(previews.map((p) => p.accountNumber))];
+    const platforms = [...new Set(previews.map((p) => p.platform).filter(Boolean))];
     const statementDates = dateRange(previews.map((p) => p.statementDate));
     const periodStarts = dateRange(previews.map((p) => p.periodStart));
     const periodEnds = dateRange(previews.map((p) => p.periodEnd));
 
     const aggregatePreview: ImportPreviewData = {
+      platform: platforms.length === 1 ? platforms[0] : undefined,
       accountNumber:
         accountNumbers.length === 1 ? accountNumbers[0] : "Multiple accounts",
       statementDate:
@@ -363,6 +377,7 @@ export function UploadFlow() {
       endingCash: previews.reduce((sum, p) => sum + p.endingCash, 0),
       totalFees: previews.reduce((sum, p) => sum + p.totalFees, 0),
       grossPnl: previews.reduce((sum, p) => sum + p.grossPnl, 0),
+      duplicatesSkipped: previews.reduce((sum, p) => sum + (p.duplicatesSkipped ?? 0), 0),
       pnlValidation: {
         isValid: previews.every((p) => p.pnlValidation.isValid),
         passCount: previews.reduce((sum, p) => sum + p.pnlValidation.passCount, 0),
