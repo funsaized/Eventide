@@ -7,8 +7,12 @@
  * Handles: upload -> parse -> preview -> import -> redirect
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { useQueryClient } from "@tanstack/react-query";
+
+import "@/lib/parsing/register";
 import {
   FileUploader,
   ParsingProgress,
@@ -23,13 +27,16 @@ import {
   type ValidationFailure,
 } from "@/components/upload";
 import { useToast } from "@/hooks/use-toast";
-import { useImportStatement } from "@/hooks/use-import-statement";
 import { useDemoTransition } from "@/hooks/use-demo-mode";
 import { DemoTransitionModal } from "@/features/demo";
-import { loadPDFFromFile } from "@/lib/parsing/robinhood/pdf-loader";
-import { parseDocument } from "@/lib/parsing/robinhood/import-pipeline";
-import { getTotalPnl } from "@/lib/calculations/fifo";
-import type { ImportPhase, ImportResult } from "@/lib/parsing/robinhood/import-pipeline";
+import { importerRegistry } from "@/lib/parsing/core";
+import { queryKeys } from "@/lib/state/query-client";
+
+import type {
+  ImportPhase,
+  ImportPreviewResult,
+  ImportResult,
+} from "@/lib/parsing/core";
 
 type FlowState =
   | "IDLE"
@@ -99,6 +106,104 @@ function addImportResult(totals: ImportTotals, result: ImportResult): ImportTota
   };
 }
 
+const UNRECOGNIZED_FILE_FORMAT_ERROR = "Unrecognized file format";
+
+interface PreviewPnlValidation {
+  isValid: boolean;
+  passCount: number;
+  failCount: number;
+  totalDiscrepancy: number;
+}
+
+interface PreviewValidationFailure {
+  symbol: string;
+  calculatedPnl: number;
+  reportedPnl: number;
+  discrepancy: number;
+}
+
+interface PreviewPlatformData {
+  netLiquidity?: number;
+  endingCash?: number;
+  pnlValidation?: PreviewPnlValidation;
+  pnlValidationFailures?: PreviewValidationFailure[];
+}
+
+function getPreviewPlatformData(platformData: unknown): PreviewPlatformData {
+  if (!platformData || typeof platformData !== "object") {
+    return {};
+  }
+
+  return platformData as PreviewPlatformData;
+}
+
+function getPreviewPnlValidation(platformData: PreviewPlatformData): PreviewPnlValidation {
+  return (
+    platformData.pnlValidation ?? {
+      isValid: true,
+      passCount: 0,
+      failCount: 0,
+      totalDiscrepancy: 0,
+    }
+  );
+}
+
+function mapToFilePreviewData(
+  fileName: string,
+  result: ImportPreviewResult
+): FilePreviewData {
+  const platformData = getPreviewPlatformData(result.platformData);
+
+  return {
+    fileName,
+    accountNumber: result.accountNumber,
+    statementDate: result.statementDate,
+    periodStart: result.periodStart,
+    periodEnd: result.periodEnd,
+    tradeCount: result.tradeCount,
+    closedPositionCount: result.closedPositionCount,
+    openPositionCount: result.openPositionCount,
+    journalEntryCount: result.cashFlowCount,
+    netLiquidity: platformData.netLiquidity ?? 0,
+    endingCash: platformData.endingCash ?? 0,
+    totalFees: result.totalFees,
+    grossPnl: result.grossPnl,
+    pnlValidation: getPreviewPnlValidation(platformData),
+    warnings: result.warnings.map((warning) => `${fileName}: ${warning}`),
+  };
+}
+
+function getValidationFailuresForPreview(
+  fileName: string,
+  result: ImportPreviewResult
+): ValidationFailure[] {
+  const platformData = getPreviewPlatformData(result.platformData);
+  const failures = platformData.pnlValidationFailures;
+
+  if (failures && failures.length > 0) {
+    return failures.map((failure) => ({
+      symbol: `${fileName}: ${failure.symbol}`,
+      calculatedPnl: failure.calculatedPnl,
+      reportedPnl: failure.reportedPnl,
+      discrepancy: failure.discrepancy,
+    }));
+  }
+
+  const pnlValidation = getPreviewPnlValidation(platformData);
+  if (pnlValidation.isValid) {
+    return [];
+  }
+
+  return [
+    {
+      symbol: `${fileName}: P&L validation`,
+      calculatedPnl: 0,
+      reportedPnl: 0,
+      discrepancy: pnlValidation.totalDiscrepancy,
+    },
+  ];
+}
+
 function dateRange(values: string[]): { start: string; end: string } {
   if (values.length === 0) {
     return { start: "-", end: "-" };
@@ -113,6 +218,7 @@ function dateRange(values: string[]): { start: string; end: string } {
 
 export function UploadFlow() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
     showModal: showDemoModal,
@@ -124,7 +230,7 @@ export function UploadFlow() {
   const [state, setState] = useState<FlowState>("IDLE");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
-  const [phase, setPhase] = useState<ImportPhase>("EXTRACTING");
+  const [phase, setPhase] = useState<ImportPhase>("PARSING");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
 
@@ -137,6 +243,7 @@ export function UploadFlow() {
 
   const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
   const [duplicateContext, setDuplicateContext] = useState<DuplicateContext | null>(null);
+  const [isReplacing, setIsReplacing] = useState(false);
 
   const [showValidationWarning, setShowValidationWarning] = useState(false);
   const [validationFailures, setValidationFailures] = useState<ValidationFailure[]>([]);
@@ -146,27 +253,40 @@ export function UploadFlow() {
   const currentImportFileIndexRef = useRef(0);
   const currentImportFileNameRef = useRef("");
 
-  const importMutation = useImportStatement({
-    onProgress: (p, prog, msg) => {
-      setPhase(p);
+  const handleImporterProgress = useCallback(
+    (nextPhase: ImportPhase, nextProgress: number, nextMessage: string) => {
+      setPhase(nextPhase);
 
       const totalFiles = totalImportFilesRef.current;
       if (totalFiles > 1) {
         const currentIndex = currentImportFileIndexRef.current;
         const totalProgress = Math.round(
-          ((currentIndex + prog / 100) / totalFiles) * 100
+          ((currentIndex + nextProgress / 100) / totalFiles) * 100
         );
         setProgress(Math.min(totalProgress, 99));
         setMessage(
-          `[${currentIndex + 1}/${totalFiles}] ${currentImportFileNameRef.current}: ${msg}`
+          `[${currentIndex + 1}/${totalFiles}] ${currentImportFileNameRef.current}: ${nextMessage}`
         );
         return;
       }
 
-      setProgress(prog);
-      setMessage(msg);
+      setProgress(nextProgress);
+      setMessage(nextMessage);
     },
-  });
+    []
+  );
+
+  const invalidateImportedData = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.statements.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.trades.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.cashFlows.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.database.hasData }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all }),
+    ]);
+  }, [queryClient]);
 
   const finalizeSuccessfulImport = useCallback(
     (totals: ImportTotals) => {
@@ -199,49 +319,21 @@ export function UploadFlow() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      setPhase("EXTRACTING");
+      setPhase("PARSING");
       setProgress(Math.round((i / files.length) * 100));
-      setMessage(`[${i + 1}/${files.length}] ${file.name}: extracting text from PDF...`);
+      setMessage(`[${i + 1}/${files.length}] ${file.name}: detecting format...`);
 
-      const document = await loadPDFFromFile(file);
+      const importer = await importerRegistry.findImporter(file);
+      if (!importer) {
+        throw new Error(UNRECOGNIZED_FILE_FORMAT_ERROR);
+      }
 
-      setPhase("PARSING_SECTIONS");
-      setMessage(`[${i + 1}/${files.length}] ${file.name}: parsing sections...`);
+      setMessage(`[${i + 1}/${files.length}] ${file.name}: parsing...`);
 
-      const parsed = await parseDocument(document);
-      const fifoTotals = getTotalPnl(parsed.fifoResults);
+      const previewResult = await importer.parseForPreview(file);
+      previews.push(mapToFilePreviewData(file.name, previewResult));
 
-      previews.push({
-        fileName: file.name,
-        accountNumber: parsed.accountNumber,
-        statementDate: parsed.statementDate,
-        periodStart: parsed.periodStart,
-        periodEnd: parsed.periodEnd,
-        tradeCount: parsed.tradesWithFees.length,
-        closedPositionCount: parsed.pairedPositions.length,
-        openPositionCount: parsed.openPositions.length,
-        journalEntryCount: parsed.journalEntries.length,
-        netLiquidity: parsed.accountSummary.netLiquidity ?? 0,
-        endingCash: parsed.accountSummary.endingCashBalance ?? 0,
-        totalFees: parsed.accountSummary.totalCommissionsAndFees ?? 0,
-        grossPnl: parsed.accountSummary.grossProfitAndLoss ?? fifoTotals.grossPnl,
-        pnlValidation: {
-          isValid: parsed.pnlValidation.isValid,
-          passCount: parsed.pnlValidation.passes.length,
-          failCount: parsed.pnlValidation.failures.length,
-          totalDiscrepancy: parsed.pnlValidation.totalDiscrepancy,
-        },
-        warnings: parsed.warnings.map((warning) => `${file.name}: ${warning}`),
-      });
-
-      allValidationFailures.push(
-        ...parsed.pnlValidation.failures.map((failure) => ({
-          symbol: `${file.name}: ${failure.symbol}`,
-          calculatedPnl: failure.calculatedPnl,
-          reportedPnl: failure.reportedPnl,
-          discrepancy: failure.discrepancy,
-        }))
-      );
+      allValidationFailures.push(...getValidationFailuresForPreview(file.name, previewResult));
 
       setProgress(Math.round(((i + 1) / files.length) * 100));
     }
@@ -307,12 +399,23 @@ export function UploadFlow() {
         currentImportFileNameRef.current = file.name;
         totalImportFilesRef.current = totalCount;
 
-        const result = await importMutation.mutateAsync({
-          file,
+        const importer = await importerRegistry.findImporter(file);
+        if (!importer) {
+          return {
+            kind: "error",
+            error: UNRECOGNIZED_FILE_FORMAT_ERROR,
+            details: [file.name],
+            totals,
+          };
+        }
+
+        const result = await importer.import(file, {
           skipDuplicateCheck: false,
+          onProgress: handleImporterProgress,
         });
 
         if (result.success) {
+          await invalidateImportedData();
           totals = addImportResult(totals, result);
           continue;
         }
@@ -330,20 +433,21 @@ export function UploadFlow() {
         return {
           kind: "error",
           error: result.error ?? `Import failed for ${file.name}`,
-          details: result.validationWarnings ?? [],
+          details: result.warnings,
           totals,
         };
       }
 
       return { kind: "success", totals };
     },
-    [importMutation]
+    [handleImporterProgress, invalidateImportedData]
   );
 
   const startParsing = useCallback(
     async (files: File[]) => {
       setSelectedFiles(files);
       setState("PARSING");
+      setIsReplacing(false);
       setError(null);
       setErrorDetails([]);
       setDuplicateInfo(null);
@@ -376,7 +480,7 @@ export function UploadFlow() {
     if (selectedFiles.length === 0) return;
 
     setState("IMPORTING");
-    setPhase("PERSISTING");
+    setPhase("PARSING");
     setProgress(0);
     setMessage("Starting import...");
 
@@ -413,8 +517,9 @@ export function UploadFlow() {
   const handleReplace = useCallback(async () => {
     if (!duplicateContext) return;
 
+    setIsReplacing(true);
     setState("IMPORTING");
-    setPhase("PERSISTING");
+    setPhase("PARSING");
     setProgress(0);
     setMessage(`Replacing duplicate import for ${duplicateContext.file.name}...`);
 
@@ -422,51 +527,72 @@ export function UploadFlow() {
     currentImportFileNameRef.current = duplicateContext.file.name;
     totalImportFilesRef.current = duplicateContext.remainingFiles.length + 1;
 
-    const replaceResult = await importMutation.mutateAsync({
-      file: duplicateContext.file,
-      skipDuplicateCheck: true,
-    });
+    try {
+      const importer = await importerRegistry.findImporter(duplicateContext.file);
+      if (!importer) {
+        setPhase("FAILED");
+        setError(UNRECOGNIZED_FILE_FORMAT_ERROR);
+        setErrorDetails([duplicateContext.file.name]);
+        setState("ERROR");
+        return;
+      }
 
-    if (!replaceResult.success) {
-      setPhase("FAILED");
-      setError(replaceResult.error ?? "Failed to replace duplicate import");
-      setErrorDetails(replaceResult.validationWarnings ?? []);
-      setState("ERROR");
-      return;
-    }
-
-    const baseTotals = addImportResult(duplicateContext.totals, replaceResult);
-    baseTotals.filesReplaced += 1;
-
-    const outcome = await importFilesSequentially(
-      duplicateContext.remainingFiles,
-      baseTotals,
-      1,
-      duplicateContext.remainingFiles.length + 1
-    );
-
-    if (outcome.kind === "success") {
-      finalizeSuccessfulImport(outcome.totals);
-      return;
-    }
-
-    if (outcome.kind === "duplicate") {
-      setDuplicateInfo(outcome.duplicate);
-      setDuplicateContext({
-        file: outcome.file,
-        duplicate: outcome.duplicate,
-        remainingFiles: outcome.remainingFiles,
-        totals: outcome.totals,
+      const replaceResult = await importer.import(duplicateContext.file, {
+        skipDuplicateCheck: true,
+        onProgress: handleImporterProgress,
       });
-      setState("DUPLICATE");
-      return;
-    }
 
-    setPhase("FAILED");
-    setError(outcome.error);
-    setErrorDetails(outcome.details);
-    setState("ERROR");
-  }, [duplicateContext, importMutation, importFilesSequentially, finalizeSuccessfulImport]);
+      if (!replaceResult.success) {
+        setPhase("FAILED");
+        setError(replaceResult.error ?? "Failed to replace duplicate import");
+        setErrorDetails(replaceResult.warnings);
+        setState("ERROR");
+        return;
+      }
+
+      await invalidateImportedData();
+
+      const baseTotals = addImportResult(duplicateContext.totals, replaceResult);
+      baseTotals.filesReplaced += 1;
+
+      const outcome = await importFilesSequentially(
+        duplicateContext.remainingFiles,
+        baseTotals,
+        1,
+        duplicateContext.remainingFiles.length + 1
+      );
+
+      if (outcome.kind === "success") {
+        finalizeSuccessfulImport(outcome.totals);
+        return;
+      }
+
+      if (outcome.kind === "duplicate") {
+        setDuplicateInfo(outcome.duplicate);
+        setDuplicateContext({
+          file: outcome.file,
+          duplicate: outcome.duplicate,
+          remainingFiles: outcome.remainingFiles,
+          totals: outcome.totals,
+        });
+        setState("DUPLICATE");
+        return;
+      }
+
+      setPhase("FAILED");
+      setError(outcome.error);
+      setErrorDetails(outcome.details);
+      setState("ERROR");
+    } finally {
+      setIsReplacing(false);
+    }
+  }, [
+    duplicateContext,
+    finalizeSuccessfulImport,
+    handleImporterProgress,
+    importFilesSequentially,
+    invalidateImportedData,
+  ]);
 
   const handleReset = useCallback(() => {
     setState("IDLE");
@@ -478,7 +604,8 @@ export function UploadFlow() {
     setErrorDetails([]);
     setDuplicateInfo(null);
     setDuplicateContext(null);
-    setPhase("EXTRACTING");
+    setIsReplacing(false);
+    setPhase("PARSING");
     setProgress(0);
     setMessage("");
     setValidationFailures([]);
@@ -487,8 +614,7 @@ export function UploadFlow() {
     totalImportFilesRef.current = 1;
     currentImportFileIndexRef.current = 0;
     currentImportFileNameRef.current = "";
-    importMutation.reset();
-  }, [importMutation]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -550,7 +676,7 @@ export function UploadFlow() {
           duplicate={duplicateInfo}
           onCancel={handleReset}
           onReplace={handleReplace}
-          isReplacing={importMutation.isPending}
+          isReplacing={isReplacing}
         />
       )}
 

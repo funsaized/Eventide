@@ -9,7 +9,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { ImportPhase } from "@/lib/parsing/robinhood/import-pipeline";
+import type { ImportPhase } from "@/lib/parsing/core";
 
 export interface ParsingStep {
   id: string;
@@ -32,10 +32,7 @@ export interface ParsingProgressProps {
 }
 
 const PHASE_LABELS: Record<ImportPhase, string> = {
-  EXTRACTING: "Extracting PDF",
-  DETECTING_SECTIONS: "Detecting Sections",
-  PARSING_SECTIONS: "Parsing Data",
-  CALCULATING_PNL: "Calculating P&L",
+  PARSING: "Parsing File",
   VALIDATING: "Validating",
   PERSISTING: "Saving to Database",
   COMPLETE: "Complete",
@@ -135,10 +132,7 @@ export function ParsingProgress({
  */
 export function generateDefaultSteps(phase: ImportPhase): ParsingStep[] {
   const phases: ImportPhase[] = [
-    "EXTRACTING",
-    "DETECTING_SECTIONS",
-    "PARSING_SECTIONS",
-    "CALCULATING_PNL",
+    "PARSING",
     "VALIDATING",
     "PERSISTING",
   ];

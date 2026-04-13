@@ -71,6 +71,12 @@ export class RobinhoodImporter implements SourceImporter {
           failCount: parsed.pnlValidation.failures.length,
           totalDiscrepancy: parsed.pnlValidation.totalDiscrepancy,
         },
+        pnlValidationFailures: parsed.pnlValidation.failures.map((failure) => ({
+          symbol: failure.symbol,
+          calculatedPnl: failure.calculatedPnl,
+          reportedPnl: failure.reportedPnl,
+          discrepancy: failure.discrepancy,
+        })),
       },
     };
   }
