@@ -8,19 +8,22 @@
  */
 
 import {
-  ResponsiveContainer,
   BarChart,
   Bar,
+  CartesianGrid,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
   Cell,
   ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
 } from "recharts";
 import { useRouter } from "next/navigation";
-import { ChartTooltip, formatCurrency } from "./chart-tooltip";
+import { formatCurrency } from "@/lib/format";
+import { CHART_COLORS } from "@/lib/chart-theme";
 import { useFilterStore } from "@/lib/state/stores";
+import { ChartEmptyState } from "./chart-empty-state";
+import { ChartTooltip } from "./chart-tooltip";
 
 interface CategoryPerformanceData {
   category: string;
@@ -35,9 +38,6 @@ interface CategoryPerformanceChartProps {
   className?: string;
 }
 
-const PROFIT_COLOR = "oklch(0.65 0.2 145)";
-const LOSS_COLOR = "oklch(0.65 0.2 25)";
-
 export function CategoryPerformanceChart({
   data,
   height = 300,
@@ -48,15 +48,8 @@ export function CategoryPerformanceChart({
 
   if (!data || data.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ height }}
-        role="img"
-        aria-label="No category performance data"
-      >
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          No data available
-        </div>
+      <div className={className}>
+        <ChartEmptyState height={height} />
       </div>
     );
   }
@@ -133,7 +126,11 @@ export function CategoryPerformanceChart({
             {data.map((entry) => (
               <Cell
                 key={entry.category}
-                fill={entry.pnl >= 0 ? PROFIT_COLOR : LOSS_COLOR}
+                fill={
+                  entry.pnl >= 0
+                    ? CHART_COLORS.profit.stroke
+                    : CHART_COLORS.loss.stroke
+                }
               />
             ))}
           </Bar>

@@ -6,6 +6,7 @@
  * Styled tooltip for Recharts that matches the design system.
  */
 
+import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface ChartTooltipProps {
@@ -20,18 +21,6 @@ interface ChartTooltipProps {
   labelFormatter?: (label: string) => string;
   valueFormatter?: (value: number, name?: string) => string;
   className?: string;
-}
-
-/**
- * Default currency formatter
- */
-export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 /**
@@ -108,4 +97,5 @@ export function SparklineTooltip({
   );
 }
 
+export { formatCurrency };
 export type { ChartTooltipProps };

@@ -17,8 +17,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import type { PositionJournalRow, PositionJournalTotals } from "@/lib/db/types";
+import { getStickyColumnClassName } from "@/lib/utils/table-utils";
 import { PnLBadge } from "./pnl-badge";
 import { createPositionColumns } from "./position-columns";
 import { PositionRowDetail } from "./position-row-detail";
@@ -94,10 +94,7 @@ export function PositionTable({
                 {headerGroup.headers.map((header, index) => (
                   <TableHead
                     key={header.id}
-                    className={cn(
-                      index === 0 &&
-                        "sticky left-0 z-10 bg-background md:static"
-                    )}
+                    className={getStickyColumnClassName(index)}
                   >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
@@ -134,10 +131,7 @@ export function PositionTable({
                     {row.getVisibleCells().map((cell, index) => (
                       <TableCell
                         key={cell.id}
-                        className={cn(
-                          index === 0 &&
-                            "sticky left-0 z-10 bg-background md:static"
-                        )}
+                        className={getStickyColumnClassName(index)}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

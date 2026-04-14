@@ -5,9 +5,39 @@ import { useFilterStore } from "@/lib/state/stores";
 import type { SortOptions, TradeFilter } from "@/lib/db/types";
 import type { SortingState } from "@tanstack/react-table";
 
-export function toSortOptions(sorting: SortingState): SortOptions | undefined {
-  if (sorting.length === 0) return undefined;
+function isSortField<T extends string>(
+  field: string,
+  allowedFields: readonly T[]
+): field is T {
+  return allowedFields.some((allowedField) => allowedField === field);
+}
+
+export function toSortOptions(sorting: SortingState): SortOptions | undefined;
+export function toSortOptions<T extends string>(
+  sorting: SortingState,
+  allowedFields: readonly T[]
+): SortOptions<T> | undefined;
+export function toSortOptions<T extends string>(
+  sorting: SortingState,
+  allowedFields?: readonly T[]
+): SortOptions | SortOptions<T> | undefined {
+  if (sorting.length === 0) {
+    return undefined;
+  }
+
   const first = sorting[0];
+
+  if (!allowedFields) {
+    return {
+      field: first.id,
+      direction: first.desc ? "desc" : "asc",
+    };
+  }
+
+  if (!isSortField(first.id, allowedFields)) {
+    return undefined;
+  }
+
   return {
     field: first.id,
     direction: first.desc ? "desc" : "asc",

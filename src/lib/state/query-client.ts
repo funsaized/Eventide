@@ -120,20 +120,9 @@ export const queryKeys = {
 } as const;
 
 /**
- * Invalidate all queries after data changes (e.g., after import)
+ * Invalidate queries related to imports.
  */
-export function invalidateAllQueries(queryClient: QueryClient): Promise<void> {
-  return queryClient.invalidateQueries();
-}
-
-/**
- * Invalidate queries related to a specific import
- * Note: Currently invalidates all related queries; importId reserved for future filtering
- */
-export function invalidateImportQueries(
-  queryClient: QueryClient,
-  _importId: string
-): Promise<void[]> {
+export function invalidateImportQueries(queryClient: QueryClient): Promise<void[]> {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.statements.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.trades.all }),

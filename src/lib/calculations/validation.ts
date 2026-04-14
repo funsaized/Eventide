@@ -6,8 +6,19 @@
  * we log them but use the statement values.
  */
 
-import type { PairedPosition } from "../parsing/robinhood/sections/section5";
 import type { FifoResult } from "./fifo";
+
+/**
+ * Minimal reported position interface used by P&L validation.
+ * Robinhood's PairedPosition satisfies this structurally.
+ */
+export interface ReportedPosition {
+  symbol: string;
+  expDate: string | null;
+  yesRow: { grossPnl: number } | null;
+  noRow: { grossPnl: number } | null;
+  netPnl: number;
+}
 
 // ============================================================================
 // TYPES
@@ -107,7 +118,7 @@ export function validatePosition(
  */
 export function validatePnlAgainstSection5(
   fifoResults: Map<string, FifoResult>,
-  section5Positions: PairedPosition[]
+  section5Positions: ReportedPosition[]
 ): ValidationResult {
   const positions: PositionValidation[] = [];
   const failures: PositionValidation[] = [];

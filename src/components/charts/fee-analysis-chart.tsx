@@ -7,18 +7,21 @@
  */
 
 import {
-  ResponsiveContainer,
-  ComposedChart,
   Bar,
+  ComposedChart,
+  CartesianGrid,
   Line,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
 } from "recharts";
-import { ChartTooltip, formatCurrency } from "./chart-tooltip";
-import { ChartLegend } from "./chart-legend";
 import { format, parseISO } from "date-fns";
+import { formatCurrency } from "@/lib/format";
+import { CHART_COLORS } from "@/lib/chart-theme";
+import { ChartEmptyState } from "./chart-empty-state";
+import { ChartLegend } from "./chart-legend";
+import { ChartTooltip } from "./chart-tooltip";
 
 interface FeeAnalysisData {
   month: string;
@@ -31,9 +34,6 @@ interface FeeAnalysisChartProps {
   height?: number;
   className?: string;
 }
-
-const BAR_COLOR = "oklch(0.6 0.15 200)"; // chart-5
-const LINE_COLOR = "oklch(0.75 0.18 75)"; // warning/yellow
 
 function formatMonth(monthStr: string): string {
   try {
@@ -58,18 +58,14 @@ export function FeeAnalysisChart({
 }: FeeAnalysisChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ height: height + 32 }}
-        role="img"
-        aria-label="No fee data"
-      >
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          No data available
-        </div>
+      <div className={className}>
+        <ChartEmptyState height={height + 32} />
       </div>
     );
   }
+
+  const barColor = CHART_COLORS.accent.stroke;
+  const lineColor = CHART_COLORS.warning.stroke;
 
   return (
     <div className={className}>
@@ -127,7 +123,7 @@ export function FeeAnalysisChart({
               yAxisId="bar"
               dataKey="fees"
               name="Monthly Fees"
-              fill={BAR_COLOR}
+              fill={barColor}
               radius={[4, 4, 0, 0]}
               barSize={32}
             />
@@ -137,12 +133,12 @@ export function FeeAnalysisChart({
               type="monotone"
               dataKey="cumulative"
               name="Cumulative"
-              stroke={LINE_COLOR}
+              stroke={lineColor}
               strokeWidth={2}
               dot={false}
               activeDot={{
                 r: 4,
-                fill: LINE_COLOR,
+                fill: lineColor,
                 stroke: "oklch(0.13 0.028 265)",
                 strokeWidth: 2,
               }}
@@ -153,8 +149,8 @@ export function FeeAnalysisChart({
 
       <ChartLegend
         items={[
-          { label: "Monthly Fees", color: BAR_COLOR, type: "square" },
-          { label: "Cumulative", color: LINE_COLOR, type: "line" },
+          { label: "Monthly Fees", color: barColor, type: "square" },
+          { label: "Cumulative", color: lineColor, type: "line" },
         ]}
         className="mt-3 justify-center"
       />

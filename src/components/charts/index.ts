@@ -5,6 +5,9 @@
 export { ChartTooltip, SparklineTooltip, formatCurrency, formatPercent } from "./chart-tooltip";
 export type { ChartTooltipProps } from "./chart-tooltip";
 
+export { ChartEmptyState } from "./chart-empty-state";
+export type { ChartEmptyStateProps } from "./chart-empty-state";
+
 export { ChartLegend } from "./chart-legend";
 export type { ChartLegendProps, ChartLegendItem } from "./chart-legend";
 

@@ -58,10 +58,6 @@ export {
   parseCurrency,
   parseInteger,
   parsePrice,
-  // Symbol categorization (basic)
-  CATEGORY_PATTERNS,
-  categorizeSymbol,
-  parseSymbol,
   // Row detection
   isDataRow,
   isTableContinuation,

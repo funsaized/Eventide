@@ -7,7 +7,9 @@
  * securities.
  */
 
-import type { TradeSide } from "../parsing/types";
+import { logger } from "@/lib/logger";
+
+import type { TradeSide } from "../db/types";
 
 // ============================================================================
 // TYPES
@@ -146,9 +148,7 @@ export class PositionLedger {
     if (lots.length === 0) {
       // No open position to close - this might be a naked short
       // For now, we'll just warn and skip
-      console.warn(
-        `No open position to close for ${trade.symbol} ${trade.side}`
-      );
+      logger.warn("FIFO", `No open position to close for ${trade.symbol} ${trade.side}`);
       return closedLots;
     }
 
@@ -205,7 +205,8 @@ export class PositionLedger {
 
     // Warn if we couldn't fully close
     if (remainingQty > 0) {
-      console.warn(
+      logger.warn(
+        "FIFO",
         `Could not fully close position: ${remainingQty} contracts remaining for ${trade.symbol} ${trade.side}`
       );
     }

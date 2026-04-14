@@ -7,13 +7,16 @@
  */
 
 import {
-  ResponsiveContainer,
   AreaChart,
   Area,
+  ResponsiveContainer,
   Tooltip,
   YAxis,
 } from "recharts";
-import { SparklineTooltip, formatCurrency } from "./chart-tooltip";
+import { formatCurrency } from "@/lib/format";
+import { CHART_COLORS } from "@/lib/chart-theme";
+import { ChartEmptyState } from "./chart-empty-state";
+import { SparklineTooltip } from "./chart-tooltip";
 
 interface SparklineDataPoint {
   value: number;
@@ -38,25 +41,6 @@ interface SparklineProps {
   /** CSS class name */
   className?: string;
 }
-
-const VARIANT_COLORS = {
-  primary: {
-    stroke: "oklch(0.55 0.24 264)", // --chart-1
-    fill: "oklch(0.55 0.24 264 / 0.2)",
-  },
-  profit: {
-    stroke: "oklch(0.65 0.2 145)", // --profit
-    fill: "oklch(0.65 0.2 145 / 0.2)",
-  },
-  loss: {
-    stroke: "oklch(0.65 0.2 25)", // --loss
-    fill: "oklch(0.65 0.2 25 / 0.2)",
-  },
-  neutral: {
-    stroke: "oklch(0.65 0.02 260)", // --muted-foreground
-    fill: "oklch(0.65 0.02 260 / 0.15)",
-  },
-};
 
 /**
  * Determine variant based on trend (first vs last value)
@@ -87,17 +71,15 @@ export function Sparkline({
 }: SparklineProps) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ width, height }}
-        aria-label="No data available"
-      />
+      <div className={className} style={{ width }}>
+        <ChartEmptyState height={height} label="" />
+      </div>
     );
   }
 
   // Auto-detect variant if not provided
   const resolvedVariant = variant ?? getAutoVariant(data);
-  const colors = VARIANT_COLORS[resolvedVariant];
+  const colors = CHART_COLORS[resolvedVariant];
 
   // Calculate domain with padding
   const values = data.map((d) => d.value);

@@ -32,6 +32,7 @@ export {
   type PositionValidation,
   type ValidationResult as PnlValidationResult,
   type DiscrepancyCause,
+  type ReportedPosition,
 } from "./validation";
 
 // Fee Attribution
@@ -45,4 +46,5 @@ export {
   calculateFeeRate,
   type TradeWithFees,
   type FeeAttributionResult,
+  type FeeSummary,
 } from "./fee-attribution";

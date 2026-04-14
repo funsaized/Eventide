@@ -14,6 +14,14 @@ import type {
   CreateCashFlowInput,
 } from "../types";
 import { generateId } from "./statements";
+import {
+  CASH_FLOW_INSERT_PARAMS,
+  CASH_FLOW_INSERT_SQL,
+  CLOSED_POSITION_INSERT_PARAMS,
+  CLOSED_POSITION_INSERT_SQL,
+  OPEN_POSITION_INSERT_PARAMS,
+  OPEN_POSITION_INSERT_SQL,
+} from "./query-utils";
 
 // ============================================================================
 // CLOSED POSITIONS
@@ -89,27 +97,8 @@ export async function createClosedPosition(
   const id = input.id ?? generateId();
 
   await execute(
-    `INSERT INTO closed_positions (
-      id, import_id, platform, symbol,
-      entry_date, exit_date, entry_price, exit_price, quantity,
-      gross_pnl, fees, net_pnl, calculated_pnl, pnl_discrepancy
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.import_id,
-      input.platform,
-      input.symbol,
-      input.entry_date ?? null,
-      input.exit_date ?? null,
-      input.entry_price ?? null,
-      input.exit_price ?? null,
-      input.quantity ?? null,
-      input.gross_pnl,
-      input.fees ?? null,
-      input.net_pnl ?? null,
-      input.calculated_pnl ?? null,
-      input.pnl_discrepancy ?? null,
-    ]
+    CLOSED_POSITION_INSERT_SQL,
+    CLOSED_POSITION_INSERT_PARAMS({ ...input, id })
   );
 
   const result = await getClosedPositionById(id);
@@ -131,27 +120,8 @@ export async function createClosedPositions(
   for (const input of inputs) {
     const id = input.id ?? generateId();
     await db.run(
-      `INSERT INTO closed_positions (
-        id, import_id, platform, symbol,
-        entry_date, exit_date, entry_price, exit_price, quantity,
-        gross_pnl, fees, net_pnl, calculated_pnl, pnl_discrepancy
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.import_id,
-        input.platform,
-        input.symbol,
-        input.entry_date ?? null,
-        input.exit_date ?? null,
-        input.entry_price ?? null,
-        input.exit_price ?? null,
-        input.quantity ?? null,
-        input.gross_pnl,
-        input.fees ?? null,
-        input.net_pnl ?? null,
-        input.calculated_pnl ?? null,
-        input.pnl_discrepancy ?? null,
-      ]
+      CLOSED_POSITION_INSERT_SQL,
+      CLOSED_POSITION_INSERT_PARAMS({ ...input, id })
     );
   }
 }
@@ -229,24 +199,7 @@ export async function createOpenPosition(
 ): Promise<OpenPosition> {
   const id = input.id ?? generateId();
 
-  await execute(
-    `INSERT INTO open_positions (
-      id, import_id, snapshot_date, symbol, side,
-      quantity, cost_basis, current_price, market_value, unrealized_pnl
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.import_id,
-      input.snapshot_date,
-      input.symbol,
-      input.side ?? null,
-      input.quantity ?? null,
-      input.cost_basis ?? null,
-      input.current_price ?? null,
-      input.market_value ?? null,
-      input.unrealized_pnl ?? null,
-    ]
-  );
+  await execute(OPEN_POSITION_INSERT_SQL, OPEN_POSITION_INSERT_PARAMS({ ...input, id }));
 
   const results = await query<OpenPosition>(
     `SELECT * FROM open_positions WHERE id = ?`,
@@ -269,24 +222,7 @@ export async function createOpenPositions(
 
   for (const input of inputs) {
     const id = input.id ?? generateId();
-    await db.run(
-      `INSERT INTO open_positions (
-        id, import_id, snapshot_date, symbol, side,
-        quantity, cost_basis, current_price, market_value, unrealized_pnl
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.import_id,
-        input.snapshot_date,
-        input.symbol,
-        input.side ?? null,
-        input.quantity ?? null,
-        input.cost_basis ?? null,
-        input.current_price ?? null,
-        input.market_value ?? null,
-        input.unrealized_pnl ?? null,
-      ]
-    );
+    await db.run(OPEN_POSITION_INSERT_SQL, OPEN_POSITION_INSERT_PARAMS({ ...input, id }));
   }
 }
 
@@ -330,18 +266,7 @@ export async function getCashFlowsByImportId(
 export async function createCashFlow(input: CreateCashFlowInput): Promise<CashFlow> {
   const id = input.id ?? generateId();
 
-  await execute(
-    `INSERT INTO cash_flows (id, import_id, date, type, amount, description)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.import_id,
-      input.date,
-      input.type,
-      input.amount,
-      input.description ?? null,
-    ]
-  );
+  await execute(CASH_FLOW_INSERT_SQL, CASH_FLOW_INSERT_PARAMS({ ...input, id }));
 
   const results = await query<CashFlow>(
     `SELECT * FROM cash_flows WHERE id = ?`,
@@ -364,18 +289,7 @@ export async function createCashFlows(
 
   for (const input of inputs) {
     const id = input.id ?? generateId();
-    await db.run(
-      `INSERT INTO cash_flows (id, import_id, date, type, amount, description)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.import_id,
-        input.date,
-        input.type,
-        input.amount,
-        input.description ?? null,
-      ]
-    );
+    await db.run(CASH_FLOW_INSERT_SQL, CASH_FLOW_INSERT_PARAMS({ ...input, id }));
   }
 }
 

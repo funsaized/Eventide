@@ -22,8 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import type { TradeJournalRow } from "@/lib/db/types";
+import { getStickyColumnClassName } from "@/lib/utils/table-utils";
 import { createTradeColumns } from "./columns";
 import { SortIndicator } from "./sort-indicator";
 import { PaginationControls } from "./pagination-controls";
@@ -97,11 +97,7 @@ export function TradeTable({
                 {headerGroup.headers.map((header, index) => (
                   <TableHead
                     key={header.id}
-                    className={cn(
-                      // Sticky first column on mobile
-                      index === 0 &&
-                        "sticky left-0 z-10 bg-background md:static"
-                    )}
+                    className={getStickyColumnClassName(index)}
                   >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
@@ -132,11 +128,7 @@ export function TradeTable({
                   {row.getVisibleCells().map((cell, index) => (
                     <TableCell
                       key={cell.id}
-                      className={cn(
-                        // Sticky first column on mobile
-                        index === 0 &&
-                          "sticky left-0 z-10 bg-background md:static"
-                      )}
+                      className={getStickyColumnClassName(index)}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

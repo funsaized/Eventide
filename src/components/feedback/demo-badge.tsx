@@ -11,10 +11,10 @@ import Link from "next/link";
 import { FlaskConical, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useUserPreferencesStore } from "@/lib/state/stores";
+import { useAppModeStore } from "@/lib/state/stores";
 
 export function DemoBadge() {
-  const isDemo = useUserPreferencesStore((s) => s.isDemo);
+  const isDemo = useAppModeStore((s) => s.isDemo);
 
   if (!isDemo) return null;
 

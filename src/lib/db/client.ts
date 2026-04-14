@@ -10,6 +10,9 @@ import { initSQLite } from "@subframe7536/sqlite-wasm";
 // Note: createIdbStorage (renamed from useIdbStorage) is NOT a React hook
 // It's a factory function from sqlite-wasm for IndexedDB storage
 import { useIdbStorage as createIdbStorage } from "@subframe7536/sqlite-wasm/idb";
+
+import { logger } from "@/lib/logger";
+
 import { runMigrations } from "./migrations";
 
 // Database configuration
@@ -50,7 +53,7 @@ function queueOperation<T>(operation: () => Promise<T>): Promise<T> {
   // We catch errors here ONLY to prevent the queue from getting stuck
   // The error still propagates to the caller via `result`
   queryQueue = result.catch((error) => {
-    console.error("[DB] Query error (queue continues):", error);
+    logger.error("DB", "Query error (queue continues)", error);
   });
 
   return result;
@@ -84,7 +87,7 @@ export function isChromiumBrowser(): boolean {
  * Initialize the database with IndexedDB persistence
  */
 async function createDatabase(): Promise<SQLiteDB> {
-  console.log("[DB] Initializing database...");
+  logger.info("DB", "Initializing database");
 
   const db = await initSQLite(
     createIdbStorage(DB_NAME, {
@@ -95,7 +98,7 @@ async function createDatabase(): Promise<SQLiteDB> {
   // Check if we need to run migrations
   await runMigrations(db);
 
-  console.log("[DB] Database initialized successfully");
+  logger.info("DB", "Database initialized successfully");
   return db;
 }
 
@@ -124,7 +127,7 @@ export async function closeDatabase(): Promise<void> {
     await dbInstance.close();
     dbInstance = null;
     initPromise = null;
-    console.log("[DB] Database connection closed");
+    logger.info("DB", "Database connection closed");
   }
 }
 
@@ -238,7 +241,7 @@ export async function checkDatabaseHealth(): Promise<{
       tableCount: tables[0]?.count ?? 0,
     };
   } catch (error) {
-    console.error("[DB] Health check failed:", error);
+    logger.error("DB", "Health check failed", error);
     return {
       ok: false,
       version: 0,

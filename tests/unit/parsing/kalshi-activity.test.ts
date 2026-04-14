@@ -70,7 +70,9 @@ describe("parseKalshiActivityCsv", () => {
 
     expect(result.credits).toHaveLength(1);
     expect(result.credits[0].Amount_In_Dollars).toBe("5");
-    expect(result.credits[0].Credit_Reason).toBe("Big Game Deposit Delay Credit");
+    expect(result.credits[0].Credit_Reason).toBe(
+      "Big Game Deposit Delay Credit",
+    );
   });
 });
 

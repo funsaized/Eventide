@@ -1,3 +1,4 @@
+export { MetricTile } from "./metric-tile";
 export { NetLiquidityTile } from "./net-liquidity-tile";
 export { RealizedPnlTile } from "./realized-pnl-tile";
 export { UnrealizedPnlTile } from "./unrealized-pnl-tile";

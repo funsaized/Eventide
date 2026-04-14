@@ -12,6 +12,10 @@ export type {
   ImportPreviewResult,
   ImportResult,
   SourceImporter,
+  PnlValidationSummary,
+  PnlValidationFailure,
+  RobinhoodPlatformData,
+  KalshiPlatformData,
 } from "./types";
 
 export { ImporterRegistry, importerRegistry } from "./registry";

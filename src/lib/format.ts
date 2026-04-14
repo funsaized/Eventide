@@ -18,7 +18,3 @@ export function formatPercent(value: number, decimals: number = 1): string {
   const prefix = value >= 0 ? "+" : "";
   return `${prefix}${value.toFixed(decimals)}%`;
 }
-
-export function formatPrice(value: number, decimals: number = 2): string {
-  return `$${value.toFixed(decimals)}`;
-}

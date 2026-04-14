@@ -6,8 +6,33 @@
  * quantity traded.
  */
 
-import type { TradeConfirmationSummary } from "../parsing/robinhood/sections/section3";
 import type { TradeEntry } from "./fifo";
+
+// ============================================================================
+// FEE SUMMARY INTERFACE (calculation-owned, no parsing dependency)
+// ============================================================================
+
+/**
+ * Minimal fee summary interface used by fee attribution.
+ * Robinhood's TradeConfirmationSummary satisfies this structurally —
+ * no explicit `extends` needed thanks to TypeScript structural typing.
+ */
+export interface FeeSummary {
+  /** Trade date (ISO format) */
+  tradeDate: string;
+  /** Position side (YES or NO) */
+  subtype: string;
+  /** Full symbol string */
+  symbol: string;
+  /** Commissions */
+  commissions: number;
+  /** Exchange fees */
+  exchangeFees: number;
+  /** NFA fees */
+  nfaFees: number;
+  /** Total fees (commissions + exchange + NFA) */
+  totalFees: number;
+}
 
 // ============================================================================
 // TYPES
@@ -62,7 +87,7 @@ export interface FeeAttributionResult {
  */
 export function attributeFees(
   trades: TradeEntry[],
-  summaries: TradeConfirmationSummary[]
+  summaries: FeeSummary[]
 ): FeeAttributionResult {
   const warnings: string[] = [];
   let totalFeesAttributed = 0;
@@ -83,7 +108,7 @@ export function attributeFees(
   }
 
   // Group summaries by symbol + date + side
-  const summaryGroups = new Map<string, TradeConfirmationSummary[]>();
+  const summaryGroups = new Map<string, FeeSummary[]>();
   for (const summary of summaries) {
     const key = `${summary.symbol}|${summary.tradeDate}|${summary.subtype}`;
     const existing = summaryGroups.get(key) ?? [];
@@ -184,7 +209,7 @@ export function attributeFees(
  */
 function distributeFeesToTrades(
   trades: TradeEntry[],
-  summaries: TradeConfirmationSummary[],
+  summaries: FeeSummary[],
   tradesWithFees: Map<TradeEntry, TradeWithFees>,
   warnings: string[]
 ): void {

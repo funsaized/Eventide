@@ -7,17 +7,20 @@
  */
 
 import {
-  ResponsiveContainer,
   AreaChart,
   Area,
-  XAxis,
-  YAxis,
-  Tooltip,
   CartesianGrid,
   ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { ChartTooltip, formatCurrency } from "./chart-tooltip";
 import { format, parseISO } from "date-fns";
+import { formatCurrency } from "@/lib/format";
+import { CHART_COLORS } from "@/lib/chart-theme";
+import { ChartEmptyState } from "./chart-empty-state";
+import { ChartTooltip } from "./chart-tooltip";
 
 interface TimeSeriesDataPoint {
   date: string;
@@ -46,21 +49,6 @@ interface TimeSeriesChartProps {
   /** CSS class name */
   className?: string;
 }
-
-const VARIANT_COLORS = {
-  primary: {
-    stroke: "oklch(0.55 0.24 264)", // --chart-1
-    fill: "oklch(0.55 0.24 264 / 0.15)",
-  },
-  profit: {
-    stroke: "oklch(0.65 0.2 145)", // --profit
-    fill: "oklch(0.65 0.2 145 / 0.15)",
-  },
-  loss: {
-    stroke: "oklch(0.65 0.2 25)", // --loss
-    fill: "oklch(0.65 0.2 25 / 0.15)",
-  },
-};
 
 /**
  * Format date for display
@@ -104,20 +92,13 @@ export function TimeSeriesChart({
 }: TimeSeriesChartProps) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ height }}
-        role="img"
-        aria-label="No data available for chart"
-      >
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          No data available
-        </div>
+      <div className={className}>
+        <ChartEmptyState height={height} />
       </div>
     );
   }
 
-  const colors = VARIANT_COLORS[variant];
+  const colors = CHART_COLORS[variant];
 
   // Calculate nice domain for Y-axis
   const values = data.map((d) => d.value);
@@ -196,8 +177,8 @@ export function TimeSeriesChart({
 
           <defs>
             <linearGradient id="timeSeriesGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={colors.fill} stopOpacity={0.8} />
-              <stop offset="95%" stopColor={colors.fill} stopOpacity={0} />
+              <stop offset="5%" stopColor={colors.subtleFill} stopOpacity={0.8} />
+              <stop offset="95%" stopColor={colors.subtleFill} stopOpacity={0} />
             </linearGradient>
           </defs>
 

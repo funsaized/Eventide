@@ -15,8 +15,6 @@ import {
   parseCurrency,
   parseInteger,
   parsePrice,
-  categorizeSymbol,
-  parseSymbol,
   isDataRow,
   isTableContinuation,
   cleanText,
@@ -28,6 +26,10 @@ import {
   getColumnForItem,
   TRADE_COLUMN_HEADERS,
 } from "@/lib/parsing/robinhood/utils";
+import {
+  categorizeSymbol,
+  parseSymbol,
+} from "@/lib/parsing/symbol";
 import type { TextItem } from "@/lib/parsing/robinhood/types";
 
 // ============================================================================
@@ -248,18 +250,18 @@ describe("parseSymbol", () => {
     const result = parseSymbol("KXNFLGAME-25SEP04DALPHI-PHI");
     expect(result.raw).toBe("KXNFLGAME-25SEP04DALPHI-PHI");
     expect(result.category).toBe("NFL");
-    expect(result.exchange).toBe("KXN"); // regex captures 2-3 uppercase chars
+    expect(result.exchange).toBe("KXNF");
     expect(result.participants).toEqual(["PHI"]);
   });
 
   it("should handle simple symbols", () => {
     const result = parseSymbol("KXBTC");
     expect(result.category).toBe("Crypto");
-    expect(result.exchange).toBe("KXB"); // regex captures 2-3 uppercase chars
+    expect(result.exchange).toBe("KXBT");
   });
 
   it("should handle unknown category", () => {
-    const result = parseSymbol("SOMETHING");
+    const result = parseSymbol("ZZUNKNOWN");
     expect(result.category).toBe("Other");
   });
 });

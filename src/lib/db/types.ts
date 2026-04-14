@@ -351,7 +351,28 @@ export interface PaginationOptions {
 /**
  * Sort options
  */
-export interface SortOptions {
-  field: string;
+export type TradeSortField =
+  | "trade_date"
+  | "symbol"
+  | "side"
+  | "quantity"
+  | "price"
+  | "fees"
+  | "category"
+  | "pnl"
+  | "status";
+
+export type PositionSortField =
+  | "first_trade_date"
+  | "last_trade_date"
+  | "symbol"
+  | "net_pnl"
+  | "total_fees"
+  | "trade_count"
+  | "category"
+  | "status";
+
+export interface SortOptions<T extends string = string> {
+  field: T;
   direction: "asc" | "desc";
 }

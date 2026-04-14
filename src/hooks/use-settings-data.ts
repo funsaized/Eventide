@@ -13,7 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/state/query-client";
 import { getStatementImports, deleteStatementImport } from "@/lib/db/queries/statements";
 import { execute } from "@/lib/db/client";
-import { useUserPreferencesStore } from "@/lib/state/stores";
+import { useAppModeStore } from "@/lib/state/stores";
 
 /**
  * Hook to fetch all statement imports for import history
@@ -52,7 +52,7 @@ export function useDeleteImport() {
  */
 export function useDeleteAllData() {
   const queryClient = useQueryClient();
-  const setIsDemo = useUserPreferencesStore((s) => s.setIsDemo);
+  const setIsDemo = useAppModeStore((s) => s.setIsDemo);
 
   return useMutation({
     mutationFn: async () => {

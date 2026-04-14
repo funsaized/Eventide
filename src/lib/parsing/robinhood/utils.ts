@@ -13,7 +13,7 @@ import type {
   ColumnPosition,
   ColumnLayout,
 } from "./types";
-import type { MarketCategory, ParsedSymbol } from "../types";
+
 import { flattenDocument, groupIntoLines, mergeLineText } from "./pdf-loader";
 
 // ============================================================================
@@ -345,88 +345,8 @@ export function parsePrice(value: string): number | null {
   return isNaN(parsed) ? null : parsed;
 }
 
-// ============================================================================
-// SYMBOL CATEGORIZATION
-// ============================================================================
-
-/**
- * Category patterns for Robinhood prediction markets
- */
-export const CATEGORY_PATTERNS: [MarketCategory, RegExp][] = [
-  ["NFL", /^KX.*NFL/i],
-  ["NBA", /^KX.*NBA/i],
-  ["MLB", /^KX.*MLB/i],
-  ["NHL", /^KX.*NHL/i],
-  ["Soccer", /^KX.*(SOCCER|MLS|UEFA|FIFA|EPL)/i],
-  ["Tennis", /^KX.*(TENNIS|USOPEN|WIMBLEDON)/i],
-  ["Golf", /^KX.*(GOLF|PGA|MASTERS)/i],
-  ["Economics", /^KX.*(FED|CPI|GDP|FOMC|JOBS|INFLATION|RATE)/i],
-  ["Politics", /^KX.*(ELECTION|PRESIDENT|CONGRESS|SENATE|VOTE)/i],
-  ["Weather", /^KX.*(WEATHER|TEMP|HURRICANE)/i],
-  ["Entertainment", /^KX.*(OSCAR|EMMY|GRAMMY|MOVIE|TV)/i],
-  ["Crypto", /^KX.*(BTC|ETH|CRYPTO|BITCOIN)/i],
-];
-
-/**
- * Categorize a symbol
- */
-export function categorizeSymbol(symbol: string): MarketCategory {
-  for (const [category, pattern] of CATEGORY_PATTERNS) {
-    if (pattern.test(symbol)) {
-      return category;
-    }
-  }
-  return "Other";
-}
-
-/**
- * Parse a full symbol string
- */
-export function parseSymbol(symbol: string): ParsedSymbol {
-  const category = categorizeSymbol(symbol);
-
-  // Try to extract parts from the symbol
-  // Format: KXNFLGAME-25SEP04DALPHI-PHI
-  const parts = symbol.split("-");
-
-  let exchange: string | undefined;
-  let eventType: string | undefined;
-  let eventDate: string | undefined;
-  let participants: string[] | undefined;
-
-  if (parts.length >= 1) {
-    // First part usually has exchange + event type
-    const firstPart = parts[0];
-    const exchangeMatch = firstPart.match(/^([A-Z]{2,3})/);
-    if (exchangeMatch) {
-      exchange = exchangeMatch[1];
-      eventType = firstPart.slice(exchange.length);
-    }
-  }
-
-  if (parts.length >= 2) {
-    // Second part often has date + teams
-    const secondPart = parts[1];
-    const dateMatch = secondPart.match(/(\d{2}[A-Z]{3}\d{2})/);
-    if (dateMatch) {
-      eventDate = dateMatch[1];
-    }
-  }
-
-  if (parts.length >= 3) {
-    // Last part(s) often have teams
-    participants = parts.slice(2);
-  }
-
-  return {
-    raw: symbol,
-    category,
-    exchange,
-    eventType,
-    eventDate,
-    participants,
-  };
-}
+// Symbol categorization and parseSymbol are in src/lib/parsing/symbol.ts
+// Use: import { categorizeSymbol, parseSymbol } from "@/lib/parsing/symbol"
 
 // ============================================================================
 // ROW DETECTION

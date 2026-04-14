@@ -28,8 +28,11 @@ export * from "./robinhood";
 // Kalshi parsing
 export * from "./kalshi";
 
-// Symbol Parsing (Enhanced)
+// Symbol Parsing
 export {
+  CATEGORY_PATTERNS,
+  categorizeSymbol,
+  parseSymbol,
   extractEventDate,
   formatEventDate,
   extractExchange,
@@ -43,5 +46,4 @@ export {
   getEventDescription,
   groupByCategory,
   getCategoryStats,
-  CATEGORY_PATTERNS as ENHANCED_CATEGORY_PATTERNS,
 } from "./symbol";

@@ -121,7 +121,6 @@ function matchFieldPattern(
  */
 export function parseSection10(
   boundary: SectionBoundary,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _pageWidth: number
 ): Section10ParseResult {
   const items = boundary.items;

@@ -11,11 +11,22 @@ import type {
   PositionJournalRow,
   PositionJournalTotals,
   CreateTradeInput,
+  PositionSortField,
   TradeFilter,
   PaginationOptions,
   SortOptions,
+  TradeSortField,
 } from "../types";
 import { generateId } from "./statements";
+import {
+  buildFilterWhereClauses,
+  buildSortClause,
+  POSITION_JOURNAL_SORT_FIELDS,
+  TRADE_INSERT_PARAMS,
+  TRADE_INSERT_SQL,
+  TRADE_JOURNAL_SORT_FIELDS,
+  TRADE_LIST_SORT_FIELDS,
+} from "./query-utils";
 
 /**
  * Get all trades
@@ -47,27 +58,18 @@ export async function getTradesByImportId(importId: string): Promise<Trade[]> {
  */
 export async function getTradesPaginated(
   pagination: PaginationOptions,
-  sort?: SortOptions
+  sort?: SortOptions<TradeSortField>
 ): Promise<{ trades: Trade[]; total: number }> {
-  const sortField = sort?.field ?? "trade_date";
-  const sortDir = sort?.direction ?? "desc";
   const offset = (pagination.page - 1) * pagination.pageSize;
-
-  // Whitelist sort fields to prevent SQL injection
-  const allowedFields = [
-    "trade_date",
-    "symbol",
-    "side",
-    "quantity",
-    "price",
-    "fees",
-    "category",
-  ];
-  const safeField = allowedFields.includes(sortField) ? sortField : "trade_date";
-  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
+  const orderByClause = buildSortClause(
+    sort?.field,
+    sort?.direction,
+    TRADE_LIST_SORT_FIELDS,
+    "trade_date"
+  );
 
   const trades = await query<Trade>(
-    `SELECT * FROM trades ORDER BY ${safeField} ${safeDir} LIMIT ? OFFSET ?`,
+    `SELECT * FROM trades ${orderByClause} LIMIT ? OFFSET ?`,
     [pagination.pageSize, offset]
   );
 
@@ -87,30 +89,19 @@ export async function getTradesPaginated(
 export async function getFilteredTrades(
   filter: TradeFilter,
   pagination: PaginationOptions,
-  sort?: SortOptions
+  sort?: SortOptions<TradeSortField>
 ): Promise<{ trades: Trade[]; total: number }> {
-  const { where: whereClause, params } = buildTradeWhereClause(filter);
-
-  // Sorting
-  const sortField = sort?.field ?? "trade_date";
-  const sortDir = sort?.direction ?? "desc";
-  const allowedFields = [
-    "trade_date",
-    "symbol",
-    "side",
-    "quantity",
-    "price",
-    "fees",
-    "category",
-  ];
-  const safeField = allowedFields.includes(sortField) ? sortField : "trade_date";
-  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
-
-  // Pagination
+  const { where: whereClause, params } = buildFilterWhereClauses(filter);
+  const orderByClause = buildSortClause(
+    sort?.field,
+    sort?.direction,
+    TRADE_LIST_SORT_FIELDS,
+    "trade_date"
+  );
   const offset = (pagination.page - 1) * pagination.pageSize;
 
   const trades = await query<Trade>(
-    `SELECT t.* FROM trades t ${whereClause} ORDER BY ${safeField} ${safeDir} LIMIT ? OFFSET ?`,
+    `SELECT t.* FROM trades t ${whereClause} ${orderByClause} LIMIT ? OFFSET ?`,
     [...params, pagination.pageSize, offset]
   );
 
@@ -131,31 +122,7 @@ export async function getFilteredTrades(
 export async function createTrade(input: CreateTradeInput): Promise<Trade> {
   const id = input.id ?? generateId();
 
-  await execute(
-    `INSERT INTO trades (
-      id, import_id, platform, account_id,
-      trade_date, symbol, side, quantity, price, fees,
-      trade_type, category, settlement_date, settlement_price,
-      platform_metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      id,
-      input.import_id,
-      input.platform,
-      input.account_id,
-      input.trade_date,
-      input.symbol,
-      input.side,
-      input.quantity,
-      input.price,
-      input.fees ?? 0,
-      input.trade_type ?? null,
-      input.category ?? null,
-      input.settlement_date ?? null,
-      input.settlement_price ?? null,
-      input.platform_metadata ? JSON.stringify(input.platform_metadata) : null,
-    ]
-  );
+  await execute(TRADE_INSERT_SQL, TRADE_INSERT_PARAMS({ ...input, id }));
 
   const result = await getTradeById(id);
   if (!result) {
@@ -173,33 +140,7 @@ export async function createTrades(inputs: CreateTradeInput[]): Promise<void> {
 
   for (const input of inputs) {
     const id = input.id ?? generateId();
-    await db.run(
-      `INSERT INTO trades (
-        id, import_id, platform, account_id,
-        trade_date, symbol, side, quantity, price, fees,
-        trade_type, category, settlement_date, settlement_price,
-        platform_metadata
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.import_id,
-        input.platform,
-        input.account_id,
-        input.trade_date,
-        input.symbol,
-        input.side,
-        input.quantity,
-        input.price,
-        input.fees ?? 0,
-        input.trade_type ?? null,
-        input.category ?? null,
-        input.settlement_date ?? null,
-        input.settlement_price ?? null,
-        input.platform_metadata
-          ? JSON.stringify(input.platform_metadata)
-          : null,
-      ]
-    );
+    await db.run(TRADE_INSERT_SQL, TRADE_INSERT_PARAMS({ ...input, id }));
   }
 }
 
@@ -284,45 +225,6 @@ const PNL_EXPRESSION = `
  */
 const STATUS_EXPRESSION = `CASE WHEN t.settlement_date IS NOT NULL THEN 'CLOSED' ELSE 'OPEN' END`;
 
-function buildTradeWhereClause(filter: TradeFilter): {
-  where: string;
-  params: unknown[];
-} {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-
-  if (filter.dateRange) {
-    conditions.push("t.trade_date BETWEEN ? AND ?");
-    params.push(filter.dateRange.start, filter.dateRange.end);
-  }
-
-  if (filter.categories && filter.categories.length > 0) {
-    const placeholders = filter.categories.map(() => "?").join(", ");
-    conditions.push(`t.category IN (${placeholders})`);
-    params.push(...filter.categories);
-  }
-
-  if (filter.symbols && filter.symbols.length > 0) {
-    const placeholders = filter.symbols.map(() => "?").join(", ");
-    conditions.push(`t.symbol IN (${placeholders})`);
-    params.push(...filter.symbols);
-  }
-
-  if (filter.sides && filter.sides.length > 0) {
-    const placeholders = filter.sides.map(() => "?").join(", ");
-    conditions.push(`t.side IN (${placeholders})`);
-    params.push(...filter.sides);
-  }
-
-  if (filter.importId) {
-    conditions.push("t.import_id = ?");
-    params.push(filter.importId);
-  }
-
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  return { where, params };
-}
-
 /**
  * Get trades for journal view with computed P&L and status.
  * Supports filtering, pagination, and sorting including computed columns.
@@ -330,9 +232,9 @@ function buildTradeWhereClause(filter: TradeFilter): {
 export async function getTradesForJournal(
   filter: TradeFilter,
   pagination: PaginationOptions,
-  sort?: SortOptions
+  sort?: SortOptions<TradeSortField>
 ): Promise<{ trades: TradeJournalRow[]; total: number }> {
-  const { where: baseWhere, params } = buildTradeWhereClause(filter);
+  const { where: baseWhere, params } = buildFilterWhereClauses(filter);
 
   const extraConditions: string[] = [];
 
@@ -359,36 +261,29 @@ export async function getTradesForJournal(
       : `WHERE ${extraConditions.join(" AND ")}`;
   }
 
-  // Sorting - whitelist including computed columns
-  const sortField = sort?.field ?? "trade_date";
-  const sortDir = sort?.direction ?? "desc";
-  const allowedFields: Record<string, string> = {
-    trade_date: "t.trade_date",
-    symbol: "t.symbol",
-    side: "t.side",
-    quantity: "t.quantity",
-    price: "t.price",
-    fees: "t.fees",
-    category: "t.category",
-    pnl: `(${PNL_EXPRESSION})`,
-    status: `(${STATUS_EXPRESSION})`,
-  };
-  const safeField = allowedFields[sortField] ?? "t.trade_date";
-  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
+  const orderByClause = buildSortClause(
+    sort?.field,
+    sort?.direction,
+    {
+      ...TRADE_JOURNAL_SORT_FIELDS,
+      pnl: `(${PNL_EXPRESSION})`,
+      status: `(${STATUS_EXPRESSION})`,
+    },
+    "trade_date"
+  );
 
-  // Pagination
   const offset = (pagination.page - 1) * pagination.pageSize;
 
   const trades = await query<TradeJournalRow>(
-    `SELECT t.*,
+     `SELECT t.*,
        ${PNL_EXPRESSION} as pnl,
        ${STATUS_EXPRESSION} as status
      FROM trades t
      ${whereClause}
-     ORDER BY ${safeField} ${safeDir}
+     ${orderByClause}
      LIMIT ? OFFSET ?`,
-    [...params, pagination.pageSize, offset]
-  );
+     [...params, pagination.pageSize, offset]
+   );
 
   const countResult = await query<{ count: number }>(
     `SELECT COUNT(*) as count FROM trades t ${whereClause}`,
@@ -408,24 +303,13 @@ export async function getTradesForJournal(
 /**
  * Sort field whitelist for position journal queries
  */
-const allowedPositionFields: Record<string, string> = {
-  first_trade_date: "first_trade_date",
-  last_trade_date: "last_trade_date",
-  symbol: "symbol",
-  net_pnl: "COALESCE(net_pnl, 0)",
-  total_fees: "total_fees",
-  category: "COALESCE(category, '')",
-  status: "status",
-  trade_count: "trade_count",
-};
-
 function buildPositionFilters(filter: TradeFilter): {
   tradeWhere: string;
   tradeParams: unknown[];
   positionWhere: string;
   positionParams: unknown[];
 } {
-  const { where: tradeWhere, params: tradeParams } = buildTradeWhereClause(filter);
+  const { where: tradeWhere, params: tradeParams } = buildFilterWhereClauses(filter);
 
   const positionConditions: string[] = [];
   const positionParams: unknown[] = [];
@@ -500,15 +384,17 @@ function buildPositionCte(tradeWhere: string): string {
 export async function getPositionsForJournal(
   filter: TradeFilter,
   pagination: PaginationOptions,
-  sort?: SortOptions
+  sort?: SortOptions<PositionSortField>
 ): Promise<{ positions: PositionJournalRow[]; total: number }> {
   const { tradeWhere, tradeParams, positionWhere, positionParams } =
     buildPositionFilters(filter);
 
-  const sortField = sort?.field ?? "first_trade_date";
-  const sortDir = sort?.direction ?? "desc";
-  const safeField = allowedPositionFields[sortField] ?? "first_trade_date";
-  const safeDir = sortDir === "asc" ? "ASC" : "DESC";
+  const orderByClause = buildSortClause(
+    sort?.field,
+    sort?.direction,
+    POSITION_JOURNAL_SORT_FIELDS,
+    "first_trade_date"
+  );
 
   const offset = (pagination.page - 1) * pagination.pageSize;
   const cte = buildPositionCte(tradeWhere);
@@ -517,7 +403,7 @@ export async function getPositionsForJournal(
     `${cte}
      SELECT * FROM position_groups
      ${positionWhere}
-     ORDER BY ${safeField} ${safeDir}
+     ${orderByClause}
      LIMIT ? OFFSET ?`,
     [...tradeParams, ...positionParams, pagination.pageSize, offset]
   );

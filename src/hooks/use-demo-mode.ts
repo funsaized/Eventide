@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useUserPreferencesStore } from "@/lib/state/stores";
+import { useAppModeStore } from "@/lib/state/stores";
 import { hasData } from "@/lib/db/queries/dashboard";
 import { seedDemoData, wipeDemoData, hasOnlyDemoData } from "@/lib/demo/generate-demo-db";
 
@@ -20,7 +20,7 @@ import { seedDemoData, wipeDemoData, hasOnlyDemoData } from "@/lib/demo/generate
  * Should be called once in the app layout
  */
 export function useDemoInit() {
-  const setIsDemo = useUserPreferencesStore((s) => s.setIsDemo);
+  const setIsDemo = useAppModeStore((s) => s.setIsDemo);
   const queryClient = useQueryClient();
   const initialized = useRef(false);
 
@@ -57,8 +57,8 @@ export function useDemoInit() {
  * Returns helpers for the upload flow
  */
 export function useDemoTransition() {
-  const isDemo = useUserPreferencesStore((s) => s.isDemo);
-  const setIsDemo = useUserPreferencesStore((s) => s.setIsDemo);
+  const isDemo = useAppModeStore((s) => s.isDemo);
+  const setIsDemo = useAppModeStore((s) => s.setIsDemo);
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);

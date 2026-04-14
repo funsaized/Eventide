@@ -8,7 +8,10 @@
  */
 
 import { ResponsiveContainer, Treemap, Tooltip } from "recharts";
-import { ChartTooltip, formatCurrency } from "./chart-tooltip";
+import { formatCurrency } from "@/lib/format";
+import { CHART_COLORS } from "@/lib/chart-theme";
+import { ChartEmptyState } from "./chart-empty-state";
+import { ChartTooltip } from "./chart-tooltip";
 
 interface VolumeTreemapData {
   category: string;
@@ -22,14 +25,10 @@ interface VolumeTreemapProps {
   className?: string;
 }
 
-const PROFIT_COLOR = "oklch(0.65 0.2 145)";
-const LOSS_COLOR = "oklch(0.65 0.2 25)";
-const NEUTRAL_COLOR = "oklch(0.4 0.02 260)";
-
 function getColor(pnl: number): string {
-  if (pnl > 0) return PROFIT_COLOR;
-  if (pnl < 0) return LOSS_COLOR;
-  return NEUTRAL_COLOR;
+  if (pnl > 0) return CHART_COLORS.profit.stroke;
+  if (pnl < 0) return CHART_COLORS.loss.stroke;
+  return CHART_COLORS.neutral.solid;
 }
 
 /**
@@ -99,15 +98,8 @@ export function VolumeTreemap({
 }: VolumeTreemapProps) {
   if (!data || data.length === 0) {
     return (
-      <div
-        className={className}
-        style={{ height }}
-        role="img"
-        aria-label="No volume data"
-      >
-        <div className="flex h-full items-center justify-center text-muted-foreground">
-          No data available
-        </div>
+      <div className={className}>
+        <ChartEmptyState height={height} />
       </div>
     );
   }

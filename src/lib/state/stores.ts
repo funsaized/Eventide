@@ -6,6 +6,7 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import type { StateCreator } from "zustand";
 import type { TradeSide, TradeFilter } from "../db/types";
 
 // ============================================================================
@@ -42,7 +43,20 @@ interface FilterState {
   getFilter: () => TradeFilter;
 }
 
-const defaultFilterState = {
+type FilterStoreSet = Parameters<StateCreator<FilterState>>[0];
+
+const defaultFilterState: Pick<
+  FilterState,
+  | "dateRange"
+  | "categories"
+  | "symbols"
+  | "sides"
+  | "minPnl"
+  | "maxPnl"
+  | "status"
+  | "page"
+  | "pageSize"
+> = {
   dateRange: null,
   categories: [],
   symbols: [],
@@ -54,13 +68,24 @@ const defaultFilterState = {
   pageSize: 50,
 };
 
+const setFilterField = <K extends keyof typeof defaultFilterState>(
+  set: FilterStoreSet,
+  field: K,
+  value: (typeof defaultFilterState)[K]
+) =>
+  set((state) => ({
+    ...state,
+    [field]: value,
+    page: 1,
+  }));
+
 export const useFilterStore = create<FilterState>()(
   persist(
     (set, get) => ({
       ...defaultFilterState,
 
-      setDateRange: (range) => set({ dateRange: range, page: 1 }),
-      setCategories: (categories) => set({ categories, page: 1 }),
+      setDateRange: (range) => setFilterField(set, "dateRange", range),
+      setCategories: (categories) => setFilterField(set, "categories", categories),
       addCategory: (category) =>
         set((state) => ({
           categories: state.categories.includes(category)
@@ -73,13 +98,13 @@ export const useFilterStore = create<FilterState>()(
           categories: state.categories.filter((c) => c !== category),
           page: 1,
         })),
-      setSymbols: (symbols) => set({ symbols, page: 1 }),
-      setSides: (sides) => set({ sides, page: 1 }),
-      setMinPnl: (value) => set({ minPnl: value, page: 1 }),
-      setMaxPnl: (value) => set({ maxPnl: value, page: 1 }),
-      setStatus: (status) => set({ status, page: 1 }),
+      setSymbols: (symbols) => setFilterField(set, "symbols", symbols),
+      setSides: (sides) => setFilterField(set, "sides", sides),
+      setMinPnl: (value) => setFilterField(set, "minPnl", value),
+      setMaxPnl: (value) => setFilterField(set, "maxPnl", value),
+      setStatus: (status) => setFilterField(set, "status", status),
       setPage: (page) => set({ page }),
-      setPageSize: (size) => set({ pageSize: size, page: 1 }),
+      setPageSize: (size) => setFilterField(set, "pageSize", size),
       clearFilters: () => set(defaultFilterState),
 
       getFilter: () => {
@@ -119,14 +144,10 @@ interface UserPreferencesState {
   // Win rate display preference
   winRateMode: "count" | "volume";
 
-  // Demo mode
-  isDemo: boolean;
-
   // Actions
   setDefaultView: (view: "dashboard" | "trades" | "analytics") => void;
   setDateFormat: (format: string) => void;
   setWinRateMode: (mode: "count" | "volume") => void;
-  setIsDemo: (isDemo: boolean) => void;
 }
 
 export const useUserPreferencesStore = create<UserPreferencesState>()(
@@ -135,15 +156,31 @@ export const useUserPreferencesStore = create<UserPreferencesState>()(
       defaultView: "dashboard",
       dateFormat: "MM/DD/YYYY",
       winRateMode: "count",
-      isDemo: false,
 
       setDefaultView: (view) => set({ defaultView: view }),
       setDateFormat: (format) => set({ dateFormat: format }),
       setWinRateMode: (mode) => set({ winRateMode: mode }),
-      setIsDemo: (isDemo) => set({ isDemo }),
     }),
     {
       name: "rubbin-hood-preferences",
+      storage: createJSONStorage(() => localStorage),
+    }
+  )
+);
+
+interface AppModeState {
+  isDemo: boolean;
+  setIsDemo: (isDemo: boolean) => void;
+}
+
+export const useAppModeStore = create<AppModeState>()(
+  persist(
+    (set) => ({
+      isDemo: false,
+      setIsDemo: (isDemo) => set({ isDemo }),
+    }),
+    {
+      name: "rubbin-hood-app-mode",
       storage: createJSONStorage(() => localStorage),
     }
   )

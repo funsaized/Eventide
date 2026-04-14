@@ -327,6 +327,10 @@ export async function importKalshiTransactions(
     const importId = await transaction(async () => {
       const id = generateId();
 
+      const importTotalFees = uniqueClosedPositions.reduce(
+        (sum, pos) => sum + (pos.fees ?? 0), 0
+      );
+
       await createStatementImport({
         id,
         platform: "kalshi",
@@ -335,6 +339,7 @@ export async function importKalshiTransactions(
         statement_period_start: dates.periodStart,
         statement_period_end: dates.periodEnd,
         parser_version: "kalshi-csv-v1",
+        total_fees: importTotalFees !== 0 ? -Math.abs(importTotalFees) : undefined,
       });
 
       const tradesWithImportId = uniqueTrades.map((trade) => ({

@@ -46,8 +46,7 @@ export interface ImportPreviewResult {
   /** Per-trade duplicate count (Kalshi) or 0 (Robinhood) */
   duplicatesSkipped: number;
   warnings: string[];
-  /** Platform-specific fields for the preview component (e.g., Robinhood pnlValidation) */
-  platformData?: unknown;
+  platformData?: RobinhoodPlatformData | KalshiPlatformData;
 }
 
 /**
@@ -69,6 +68,35 @@ export interface ImportResult {
     existingId: string;
     existingDate: string;
   };
+}
+
+// ============================================================================
+// PLATFORM-SPECIFIC PREVIEW DATA
+// ============================================================================
+
+export interface PnlValidationSummary {
+  isValid: boolean;
+  passCount: number;
+  failCount: number;
+  totalDiscrepancy: number;
+}
+
+export interface PnlValidationFailure {
+  symbol: string;
+  calculatedPnl: number;
+  reportedPnl: number;
+  discrepancy: number;
+}
+
+export interface RobinhoodPlatformData {
+  netLiquidity: number;
+  endingCash: number;
+  pnlValidation: PnlValidationSummary;
+  pnlValidationFailures: PnlValidationFailure[];
+}
+
+export interface KalshiPlatformData {
+  totalDeposits: number;
 }
 
 /**
