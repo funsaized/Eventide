@@ -39,8 +39,11 @@ PDF Upload → pdf.js → Section Parsers → wa-sqlite/IndexedDB
 | Parsing | `src/lib/parsing/` | Pure TS (no React deps), versioned parsers, section logic |
 | State | `src/lib/state/` | TanStack Query v5 + Zustand stores |
 | Hooks | `src/hooks/` | TanStack Query wrappers over query functions |
+| Calculations | `src/lib/calculations/` | FIFO P&L, fee attribution, validation — pure TS |
+| Features | `src/features/` | Page-level orchestration: upload flow, analytics view, demo, settings |
+| Format | `src/lib/format.ts` | `formatCurrency`, `formatPnl`, `formatPercent` |
 | Components | `src/components/<domain>/` | Domain folders with barrel `index.ts` |
-| Pages | `src/app/(app)/` | All `"use client"`, routes: dashboard/trades/analytics/settings/upload |
+| Pages | `src/app/(app)/` | All `"use client"`, routes: dashboard/trades/analytics/settings/upload/demo-parse |
 
 ### Critical Rules
 
@@ -49,6 +52,11 @@ PDF Upload → pdf.js → Section Parsers → wa-sqlite/IndexedDB
 - **Upload supports multiple PDFs** — `FileUploader` accepts `File[]`, `upload-flow.tsx` parses sequentially with aggregate preview, imports sequentially with per-file duplicate handling and resume.
 - **Chromium-only** (Chrome 119+, Edge 119+, Brave 1.60+). OPFS requirement blocks Firefox/Safari. `BrowserBlocker` enforces this.
 - **All queries are serialized** through the db query queue. Transactions bypass the queue to avoid deadlock.
+- **Parser registration uses side-effect imports** — `src/lib/parsing/register.ts` imports platform importers for their registration side effects. Upload flow imports `register.ts` to activate dispatch.
+- **Page boundary isolation** — PDF items on different pages are NEVER grouped into the same row. This is enforced in `pdf-loader.ts` and `columns.ts`.
+- **Robinhood sells = opposite-side buys** — Robinhood represents "selling" as "buying the opposite side" (YES+NO=$1.00). Pairing logic in `import-pipeline.ts` handles this.
+- **Kalshi settlement_price placement** — `settlement_price` must be placed on the OPEN trade so SQL P&L computes against the entry price. See `kalshi/transform.ts`.
+- **FIFO ordering** — Within the same date, OPEN trades must be processed before CLOSE/SETTLE. See `calculations/fifo.ts`.
 
 ## Code Style
 
@@ -188,3 +196,15 @@ import type { SortOptions, TradeFilter } from "@/lib/db/types";
 2. Pure TypeScript — no React dependencies
 3. Add tests in `tests/unit/parsing/`
 4. Register in `src/lib/parsing/registry.ts`
+
+## Complexity Hotspots
+
+Files >500 lines (modify with care):
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| `lib/parsing/robinhood/import-pipeline.ts` | 1074 | Full import orchestration |
+| `lib/parsing/robinhood/sections/columns.ts` | 981 | Column calibration for PDF tables |
+| `features/imports/upload-flow.tsx` | 716 | Upload UI state machine |
+| `lib/parsing/symbol.ts` | 593 | Symbol parsing + categorization |
+| `lib/db/queries/trades.ts` | 588 | Trade queries with SQL P&L |
